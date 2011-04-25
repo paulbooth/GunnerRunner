@@ -3,9 +3,23 @@ var canvasHeight;
 var canvasWidth;
 var maxTunnelRadius;
 var numTunnelLines = 7;
-var updateTime = 20;
+var updateTime = 1000/30;
 var focalDist = 100;
 var lightDist = 5000;
+var tunnelLineSpeed = Math.PI/200;
+
+//for pilot
+var acceleration = .5, backwardAcceleration = .5;
+
+//fraction of speed to move backwards when hit barrier
+var barrierBounce = .65;
+//amount of speed increase through hole
+var barrierBoost = 5;
+//friction
+var friction = .99;
+//pilot cutoff speed
+//less than this is the same as 0
+var cutoffSpeed = .001;
 
 var initialLineAngle = 0;
 var player;
@@ -15,6 +29,25 @@ var maincanvas;
 var updateIntervalId;
 var centerY;
 var centerX;
+
+var numAudioChannels = 10;
+var audioChannels = new Array(numAudioChannels);
+var currentAudioChannel = 0;
+
+var mousePressed = false, leftMouse = true;
+var wentOutMousePressed = false;
+
+function playSound(sound) {
+    //console.log(sound);
+    var audioChannel = audioChannels[currentAudioChannel];
+    audioChannel.src = "audio/"+sound+".ogg";
+    audioChannel.load();
+    audioChannel.play();
+    currentAudioChannel++;
+    if (currentAudioChannel == numAudioChannels) {
+	currentAudioChannel = 0;
+    }
+}
 
 function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     context.beginPath();
@@ -40,13 +73,20 @@ function adjustFor3D(r, dist) {
     return r * focalDist / (dist + focalDist);
 }
 
+function getColorAtDistance(dist) {
+    return Math.floor(255
+		      -255*
+	       adjustFor3D(255 ,dist)
+	       /adjustFor3D(255,0) );
+}
+
 function isPointInPoly(poly, pt){
     var c = false,  l = poly.length, j = l - 1;
-	for(var i = -1; i < l; j = ++i)
-		((poly[i].y <= pt.y && pt.y < poly[j].y) || (poly[j].y <= pt.y && pt.y < poly[i].y))
-		&& (pt.x < (poly[j].x - poly[i].x) * (pt.y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
-		&& (c = !c);
-	return c;
+    for(var i = -1; i < l; j = ++i)
+	((poly[i].y <= pt.y && pt.y < poly[j].y) || (poly[j].y <= pt.y && pt.y < poly[i].y))
+	&& (pt.x < (poly[j].x - poly[i].x) * (pt.y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
+	&& (c = !c);
+    return c;
 }
 
 
@@ -54,8 +94,64 @@ function Barrier() {
     //this.circles = circles;
     this.thickness = 50;
     this.barrierDist = lightDist;
+    this.rotation = 0;
+    this.rotationSpeed = Math.PI/50 * (Math.random() - .5) * 2;
 
-    this.holes = [[0,0,.5, 0, .01]];
+    this.holes = [];//this.makeRandomHoles(); //[[.25,0,.75, .5, 1, -.01], [0,0,.25]];
+
+    this.makeFlowerHoles = function() {
+	var ringRadius = Math.random() * .2+.4;
+	var holeRadius = Math.random() * (.99 - ringRadius) + .1;
+	var numHoles = Math.floor(Math.random() * 10) + 2;
+	var angleInc = Math.PI * 2 / numHoles,
+	angle = Math.random() * angleInc;
+	for (var i = 0; i < numHoles; i++) {
+	    var hole = [ringRadius, angle, holeRadius];
+	    this.holes.push(hole);
+	    angle += angleInc;
+	}
+    };
+
+    this.makeSpacedHoles = function() {
+	var ringRadius = Math.random() * .2 + .4;
+	var holeRadius = Math.random() * .3 + .1;
+	var numHoles = Math.floor(Math.random() * 3) + 2;
+	var angleInc = Math.PI * 2 / numHoles,
+	angle = Math.random() * angleInc;
+	for (var i = 0; i < numHoles; i++) {
+	    var hole = [ringRadius, angle, holeRadius];
+	    this.holes.push(hole);
+	    angle += angleInc;
+	}
+    };
+
+    this.makeRandomHoles = function () {
+	var numHoles = Math.floor(Math.random()*5) + 1;
+	for (var i = 0; i < numHoles; i++) {
+	    var posradius = Math.random()*.9;
+	    var angle = Math.random() * 2 * Math.PI;
+	    var holeradius = Math.random() * (.89 - posradius)+.1;
+	    var hole = [posradius, angle, holeradius];
+	    this.holes.push(hole);
+	}
+    };
+
+    this.makeRandomBarrier = function () {
+	var chooser = Math.random();
+	if (Math.random() < .1) {
+	    this.holes.push([0,0,1]);
+	}
+	if (chooser < .4) {
+	    this.makeRandomHoles();
+	} else if (chooser < .6) {
+	    this.makeFlowerHoles();
+	} else if (chooser < .8) {
+	    this.makeSpacedHoles();
+	} else {
+	    this.holes.push([0,0,1,Math.random()*.3,Math.random(), Math.random()*.1]);
+	}
+    };
+    //this.makeRandomBarrier();
     /*
      this.holes = [];
      this.numholes = 1 + Math.floor(Math.random()*5);
@@ -70,30 +166,33 @@ function Barrier() {
 	    - adjustFor3D(cameraX, backDist);
 	var barrierY = centerY
 	    - adjustFor3D(cameraY, backDist);
-	var color = Math.floor(200
-			       -adjustFor3D(200 ,backDist)
-			       *200/adjustFor3D(200,0));
+	var color = Math.floor(getColorAtDistance(this.barrierDist)/2);
+
 
 	drawingContext.beginPath();
 	drawingContext.lineWidth = 1;
 
-	drawingContext.fillStyle = '#000';
+	drawingContext.fillStyle = 'rgb(' + [color, color, color].toString() + ')';;
 
 	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
 	this.drawHoles(barrierX, barrierY, barrierRadius);
-	    /*
-													  drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
+	/*
+	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
 	drawingContext.fill();
     };
 
     this.drawHoles = function(x,y,r) {
 	for (var i = 0; i < this.holes.length; i++) {
-	    var hole = this.holes[i], holerad = hole[2] * hole[3] * r,
-	    holex = x + hole[0] * r,
-	    holey = y + hole[1] * r;
+	    var hole = this.holes[i], holerad;
+	    if (hole.length > 3)
+		holerad = (hole[4] * (hole[2] - hole[3]) + hole[3]) * r;
+	    else
+		holerad = hole[2] * r;
+	    holex = x + hole[0] * Math.cos(hole[1] + this.rotation) * r,
+	    holey = y + hole[0] * Math.sin(hole[1] + this.rotation) * r;
 
 	    drawingContext.moveTo(holex + holerad, holey);
-	drawingContext.arc(holex, holey, holerad,  Math.PI * 2 - 0.01, 0,true);
+	    drawingContext.arc(holex, holey, holerad,  Math.PI * 2 - 0.01, 0,true);
 	}
 
     };
@@ -105,9 +204,7 @@ function Barrier() {
 	    - adjustFor3D(cameraX, this.barrierDist);
 	var barrierY = centerY
 	    - adjustFor3D(cameraY, this.barrierDist);
-	var color = Math.floor(200
-			       -adjustFor3D(200 ,this.barrierDist)
-			       *200/adjustFor3D(200,0));
+	var color = getColorAtDistance(this.barrierDist);
 
 	drawingContext.beginPath();
 	drawingContext.lineWidth = barrierRadius
@@ -118,27 +215,31 @@ function Barrier() {
 	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
 	this.drawHoles(barrierX, barrierY, barrierRadius);
 	/*
-													  drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
+	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
 	drawingContext.fill();
     };
 
 
     this.update = function(vel) {
 	this.updateHoles();
+	this.rotation = (this.rotation + this.rotationSpeed) % (Math.PI * 2);
 	this.barrierDist = this.barrierDist - vel;
     };
 
     this.updateHoles = function() {
 	for (var i = 0; i < this.holes.length; i++) {
 	    var hole = this.holes[i];
-	    hole[3] += hole[4];
-	    //console.log(hole[3]);
-	    if (hole[3] > 1) {
-		hole[3] = 1;
-		hole[4] *= -1;
-	    } else if (hole[3] < 0) {
-		hole[3] = 0;
-		hole[4] *= -1;
+	    if (hole.length>5) {
+		//are our holes growing?
+		hole[4] += hole[5];
+		//console.log(hole[3]);
+		if (hole[4] > 1) {
+		    hole[4] = 1;
+		    hole[5] *= -1;
+		} else if (hole[4] < 0) {
+		    hole[4] = 0;
+		    hole[5] *= -1;
+		}
 	    }
 	}
     };
@@ -147,13 +248,22 @@ function Barrier() {
 	var hit = true;
 
 	for (var i = 0; i < this.holes.length; i++) {
-	    var hole = this.holes[i], holerad = hole[2] * hole[3] *  maxTunnelRadius,
-	    holex = hole[0] * maxTunnelRadius,
-	    holey = hole[1] * maxTunnelRadius;
-	if (Math.pow(shipX - holex, 2)
-	    + Math.pow(shipY - holey, 2)
-	    <= Math.pow(holerad,2)) {
-	    hit = !hit;
+	    var hole = this.holes[i], holerad,
+		holex = hole[0] * Math.cos(hole[1] + this.rotation) * maxTunnelRadius,
+		holey = hole[0] * Math.sin(hole[1] + this.rotation) * maxTunnelRadius;
+	    if (hole.length>3)
+		holerad= (hole[4] * (hole[2] - hole[3]) + hole[3])
+			      * maxTunnelRadius;
+	    else
+		holerad = hole[2] * maxTunnelRadius;
+
+	    if (Math.pow(shipX - holex, 2)
+		+ Math.pow(shipY - holey, 2)
+		<= Math.pow(holerad,2)) {
+		if (hit)
+		    hit = false;
+		else
+		    return true;
 	    }
 	}
 	return hit;
@@ -171,7 +281,7 @@ function Player(role) {
     // distance between us and first indicator
     this.shipVel = 20;
     this.role = role; //set from socket.io
-    this.barriers = [new Barrier()];
+    this.barriers = [];
 
     this.update = function() {
 
@@ -182,13 +292,13 @@ function Player(role) {
 	this.drawTunnel();
 	this.drawTunnelIndicators();
 	this.drawBarriers();
-
+	this.drawShip();
 
 	this.updateRole();
     };
 
     this.updateTunnel = function() {
-	initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
+	initialLineAngle = (initialLineAngle + tunnelLineSpeed) % (Math.PI*2);
 	this.indicatorOffset = (this.indicatorOffset - this.shipVel);
 	if (this.indicatorOffset < 0) {
 	    this.indicatorOffset += this.indicatorDelta;
@@ -198,31 +308,55 @@ function Player(role) {
     };
 
     this.updateBarriers = function() {
-	for (var i = 0; i < this.barriers.length; i++) {
+	//make sure traverse barriers in correct order
+	//fix bug where two barriers are passed in same time step (large speed)
+	//this way, the barriers are recycled in correct order, keep drawn in
+	//correct order. bug not fixed
+	for (var i = this.barriers.length-1; i >=0; i--) {
 	    var barrier = this.barriers[i];
 	    barrier.update(this.shipVel);
 	    var dist = barrier.barrierDist;
-	    if (dist < 0 && this.shipVel > 0){
+	    if (dist < 0 && dist > -barrier.thickness && this.shipVel >0){//shivel into account?
 		if (barrier.checkForHit(this.shipX, this.shipY)) {
 		    //WE hit it
-		    this.shipVel *= -.65;
+		    this.bounce();
+
 		} else {
-		    this.shipVel += 5;
-		    this.barriers[i].barrierDist = lightDist;
+		    this.shipVel += barrierBoost;
+		    playSound("woom");
+		    //made past! give boost
 		}
-		//TODO: send it to the other player's domain
-	    } else if (dist > lightDist) {
+
+	    } else if (dist > 1.1*lightDist) {
 		//We are too far away. Who cares about it?
-		//TODO: delete new barrier
-		//TODO: generate a new barrier
+		//delete barrier
+		this.barriers.splice(i,1);
+	    } else if (dist <= -focalDist) {
+		//TODO: send it to the other player's domain
+	/*	this.barriers[i].barrierDist = lightDist;
+		this.barriers[i].holes=[];
+		this.barriers[i].makeRandomBarrier();
+		this.barriers.unshift(this.barriers.splice(i,1)[0]);
+	 */
+		socket.send({barrier:this.barriers[i]});
+		this.barriers.splice(i,1);
+		var bar = new Barrier();
+		bar.makeRandomBarrier();
+		this.barriers.push(bar);
+
+
 	    }
 	}
     };
 
-
+    this.bounce = function() {
+	if (this.shipVel < 0) return;
+	this.shipVel *= -barrierBounce;
+	if (Math.abs(this.shipVel) > acceleration)
+	playSound("bop");
+    };
 
     this.updateRole = function() {};
-
 
     this.drawTunnelIndicators = function() {
 	for (var indicatorDist = this.indicatorOffset;
@@ -233,11 +367,9 @@ function Player(role) {
 		- adjustFor3D(this.shipX, indicatorDist);
 	    var indicatorY = centerY
 		- adjustFor3D(this.shipY, indicatorDist);
-	    var color = Math.floor(200
-				   -adjustFor3D(200 ,indicatorDist)
-				   *200/adjustFor3D(200,0));
-	    drawingContext.lineWidth = indicatorRadius
-		- adjustFor3D(maxTunnelRadius ,indicatorDist+10);
+	    var color = getColorAtDistance(indicatorDist);
+		drawingContext.lineWidth = Math.max(indicatorRadius
+						    - adjustFor3D(maxTunnelRadius ,indicatorDist+10), 1);
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
 		       'rgb(' + [color,color,color].toString() + ')')
 	    /*
@@ -249,10 +381,18 @@ function Player(role) {
     };
 
     this.drawBarriers = function () {
-	for (var i = 0; i < this.barriers.length; i++) {
+	for (var i = this.barriers.length - 1; i >= 0; i--) {
 	    var barrier = this.barriers[i];
 	    barrier.draw(this.shipX, this.shipY);
 	}
+    };
+
+    this.drawShip = function() {
+	
+	drawingContext.fillStyle="rgba(0,255,0,.5)";
+	drawingContext.fillRect(centerX - 10, centerY - 10, 20, 20);
+	drawingContext.fillStyle="black";
+	drawingContext.fillRect(centerX - 1, centerY - 1, 2, 2);
     };
 
     this.clear = function() {
@@ -269,7 +409,7 @@ function Player(role) {
 	var angleDiff = Math.PI * 2 / numTunnelLines;
 	var currentAngle = initialLineAngle;
 	var beginTunnelRadius = adjustFor3D(maxTunnelRadius, 0);
-	var triangleWidth = 10;
+	var triangleWidth = 30;
 
 	// draw the frame thing
 	drawingContext.fillStyle = '#000';
@@ -283,17 +423,17 @@ function Player(role) {
 	//now want everything else to draw default
 
 	//Now to draw triangles! give depth perception
-
+	var endScale = adjustFor3D(1,-focalDist * .9);
 	for (var i=0; i < numTunnelLines; i++) {
-	drawingContext.beginPath();
+	    drawingContext.beginPath();
 	    drawingContext.moveTo(lightX, lightY);
 	    var triangleAngle = currentAngle + Math.PI/2;
-	    var lineEndX = beginTunnelRadius * Math.cos(currentAngle)
-		- this.shipX + centerX,
-	    lineEndY = beginTunnelRadius * Math.sin(currentAngle)
-		- this.shipY + centerY,
-	    triangleBaseX = triangleWidth * Math.cos(triangleAngle),
-	    triangleBaseY = triangleWidth * Math.sin(triangleAngle);
+	    var lineEndX = beginTunnelRadius * endScale * Math.cos(currentAngle)
+		- this.shipX * endScale + centerX,
+	    lineEndY = beginTunnelRadius * endScale *  Math.sin(currentAngle)
+		- this.shipY * endScale + centerY,
+	    triangleBaseX = triangleWidth * endScale * Math.cos(triangleAngle),
+	    triangleBaseY = triangleWidth * endScale * Math.sin(triangleAngle);
 
 	    drawingContext.lineTo(lineEndX + triangleBaseX,
 				  lineEndY + triangleBaseY
@@ -303,10 +443,10 @@ function Player(role) {
 				 );
 	    drawingContext.lineTo(lightX, lightY);
 	    drawingContext.closePath();
-	    var lingrad = drawingContext.createLinearGradient(lightX, lightY,
-						   lineEndX, lineEndY);
+	    var lingrad = drawingContext.createLinearGradient(lightX, lightY, lineEndX, lineEndY);
 	    lingrad.addColorStop(0, 'white');
-	    lingrad.addColorStop(1, 'black');
+	    lingrad.addColorStop(adjustFor3D(1,0)/endScale, 'black');
+	    //lingrad.addColorStop(1,'black');
 	    drawingContext.fillStyle = lingrad;
 
 	    drawingContext.fill();
@@ -323,14 +463,12 @@ function Player(role) {
 	//drawingContext.strokeStyle = '#444';
 	//drawingContext.fillStyle = drawingContext.strokeStyle;
 	//drawingContext.stroke();
-
-	/*
-	 */
     };
 }
 
 function update() {
     player.update();
+//    console.log(player.barriers.length);
 }
 
 function init() {
@@ -348,8 +486,51 @@ function init() {
     player = new Player();
     updateIntervalId = setInterval(update, updateTime);
     disallowSelecting();
-
+    initAudio();
+    initMouse();
     //resizeCanvas();
+}
+
+function initMouse() {
+
+    maincanvas.onmousemove = function(event) {
+	event.preventDefault();
+	// from middle of canvas
+	player.mouseX = (event.pageX - centerX - maincanvas.offsetLeft)*2;
+	player.mouseY = (event.pageY - centerY - maincanvas.offsetTop)*2;
+	//correct for non-square canvases
+	player.mouseX = player.mouseX/centerX * maxTunnelRadius;
+	player.mouseY = player.mouseY/centerY * maxTunnelRadius;
+    };
+
+    maincanvas.onmousedown = function(event) {
+	event.preventDefault();
+	mousePressed = true;
+	leftMouse = (event.button == 0);
+	console.log(player.shipVel);
+    };
+    maincanvas.onmouseup = function(event) {
+	event.preventDefault();
+	mousePressed = false;
+    };
+    maincanvas.onmouseout = function(event) {
+	event.preventDefault();
+	wentOutMousePressed = mousePressed;
+	mousePressed = false;
+    };
+
+    maincanvas.onmouseover = function(event) {
+	event.preventDefault();
+	mousePressed = wentOutMousePressed;
+    };
+}
+
+function initAudio() {
+    for (var i = 0; i < numAudioChannels; i++) {
+	audioChannels[i] = new Audio();
+    }
+    //console.log(audioChannels[2] == audioChannels[0]);
+    //console.log(audioChannels);
 }
 
 function initSocket() {
@@ -366,18 +547,54 @@ function initSocket() {
 		      player.role = evt.role;
 		      if (player.role == 'pilot') {
 			  initPilot();
+		      } else if (player.role == 'gunner') {
+			  initGunner();
 		      }
 		      console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
+
 		  } else if ('gameStart' in evt) {
 		      clearInterval(updateIntervalId);
 		      updateIntervalId = setInterval(update, updateTime);
 		  } else if ('shipX' in evt) {
 		      //drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
 		      if (player.role == 'gunner') {
-			  player.shipX = -evt.shipX ;
-			  player.shipY = evt.shipY;
+			  player.shipX = -evt.shipX * maxTunnelRadius;
+			  player.shipY = evt.shipY * maxTunnelRadius;
 			  player.shipVel = -evt.shipVel;
 		      }
+		  } else if ('barrier' in evt) {
+		      var bar2 = evt.barrier;
+		      var bar = new Barrier();
+		      bar.barrierDist = -focalDist;
+		      for (var i = 0; i < bar2.holes.length; i++) {
+			  var hole = bar2.holes[i];
+			  var oldangle = Math.floor(hole[1]/Math.PI*180);
+			  hole[1] = (Math.PI - hole[1]);
+			  if (hole[1] < 0) {
+			      hole[1] += 2*Math.PI;
+			  }
+			  if (hole[1] > 2*Math.PI)
+			      hole[1] -= 2*math.PI;
+			  bar.holes.push(hole);
+
+			 // console.log("old:"+oldangle+" new:"+Math.floor(hole[1]/Math.PI*180));
+		      }
+		      //bar.holes = bar2.holes;
+		      bar.rotation = bar2.rotation;
+		      bar.rotationSpeed = bar2.rotationSpeed;
+		      bar.thickness = bar2.thickness;
+		      //bar2.__proto__ = bar;
+
+		      if ( player.role == "pilot" && bar.checkForHit(player.shipX,
+		      player.shipY)) {
+			  player.bounce();
+			  socket.send({barrier:bar});
+		      } else {
+			      player.barriers.unshift(bar);
+			  }
+
+
+		      //alert("barrier\n"+evt.barrier.holes);
 		  }
 	      });
 
@@ -387,52 +604,36 @@ function initSocket() {
 }
 
 function initPilot() {
-    var accelerating = false, forward = true;
-    var acceleration = .5, backwardAcceleration = .5;
-    var wentOutAccelerating = false;
-    var bar = new Barrier();
-    bar.barrierDist = lightDist/2;
-    bar.holes = [[-.25,-.5,.25, 0, .02]];
-    bar.holes.push([.75, 0, .25, 1, -.01]);
-    bar.holes.push([0,.75, .25, .5, .005]);
 
-    player.barriers.push(bar);
+    /*
+     var bar = new Barrier();
+     bar.barrierDist = lightDist/2;
+     bar.holes = [[-.25,-.5,.25, 1, 0]];
+     bar.holes.push([.75, 0, .25, 1, 0]);
+     bar.holes.push([0,.75, .25, 1, .005]);
 
-    maincanvas.onmousemove = function(event) {
-	event.preventDefault();
-	// from middle of canvas
-	player.mouseX = (event.pageX - centerX - maincanvas.offsetLeft)*2;
-	player.mouseY = (event.pageY - centerY - maincanvas.offsetTop)*2;
-	//correct for non-square canvases
-	player.mouseX = player.mouseX/centerX * maxTunnelRadius;
-	player.mouseY = player.mouseY/centerY * maxTunnelRadius;
-    };
+     player.barriers.push(bar);*/
+   /* var bar = new Barrier();
+    bar.barrierDist = lightDist;
+    bar.holes = [[0,0,.5,1,0]];
+    player.barriers.push(bar);*/
+    for (var i = 1000; i < lightDist; i+= 2000) {
 
-    maincanvas.onmousedown = function(event) {
-	event.preventDefault();
-	accelerating = true;
-	forward = (event.button == 0);
-	console.log(player.shipVel);
-    };
-    maincanvas.onmouseup = function(event) {
-	event.preventDefault();
-	accelerating = false;
-    };
-    maincanvas.onmouseout = function(event) {
-	event.preventDefault();
-	wentOutAccelerating = accelerating;
-	accelerating = false;
-    };
+	var bar = new Barrier();
+	bar.makeRandomBarrier();
+	bar.barrierDist = i;
+	//bar.holes = [[0,0,.5,1,0]];
+	player.barriers.push(bar);
+    }
 
-    maincanvas.onmouseover = function(event) {
-	event.preventDefault();
-	accelerating = wentOutAccelerating;
-    };
 
     player.updateRole = function() {
 	var clippingSpeed = 50;
+	var oldRad = Math.sqrt(
+	    Math.pow(player.shipX, 2)
+		+ Math.pow( player.shipY, 2));
 	var mouseTrailProp = .25
-	    *Math.min(player.shipVel, clippingSpeed)/clippingSpeed;
+	    *(Math.min(player.shipVel, clippingSpeed)/clippingSpeed*.9+.1);
 	//a noncontinuous linear hack for a logarithmic or -a/x-b curve
 	player.shipX = player.mouseX * mouseTrailProp +
 	    player.shipX * (1 - mouseTrailProp);
@@ -445,21 +646,91 @@ function initPilot() {
 	     > maxTunnelRadius) {
 	    player.shipX *= maxTunnelRadius / shipPositionRadius;
 	    player.shipY *= maxTunnelRadius / shipPositionRadius;
+	    if (oldRad < maxTunnelRadius)
+		playSound("csh");
 	}
 	//console.log(player.mouseX, player.shipX, mouseTrailProp);
 
-	socket.send({shipX: this.shipX,
-		     shipY: this.shipY,
+	socket.send({shipX: this.shipX/maxTunnelRadius,
+		     shipY: this.shipY/maxTunnelRadius,
 		     shipVel: this.shipVel});
-	player.shipVel *= .99;//hard-coded friction
-	if (Math.abs(player.shipVel) < .001) {
+	player.shipVel *= friction;
+	if (Math.abs(player.shipVel) < cutoffSpeed) {
 	    player.shipVel = 0;
 	}
-	if (accelerating) {
-	    if (forward)
+	if (mousePressed) {
+	    if (leftMouse)
 		player.shipVel += acceleration;
 	    else
 		player.shipVel -= backwardAcceleration;
+	}
+    };
+}
+
+function initGunner() {
+    document.title = "Gunner Runner - Gunner";
+    tunnelLineSpeed *=-1;
+    function Bullet(x,y,z,xs,ys,zs) {
+	this.x = x;
+	this.y = y;
+	this.z = z;
+	this.velX = xs;
+	this.velY = ys;
+	this.velZ = zs;
+
+	var bulletRadius = .01 * maxTunnelRadius;
+	this.draw = function(cameraX, cameraY) {
+
+	    drawCircle(drawingContext, centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z), centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z), adjustFor3D(bulletRadius, this.z), 'black','rgba(255,0,0,.5)');
+	};
+
+	this.update = function() {
+	    this.x += this.velX;
+	    this.y += this.velY;
+	    this.z += this.velZ - player.shipVel;
+	    var r = Math.sqrt(
+	    Math.pow(this.x, 2)
+		+ Math.pow( this.y, 2));
+
+	    if ( r > maxTunnelRadius - bulletRadius) {
+		this.x *= maxTunnelRadius / r;
+		this.y *= maxTunnelRadius / r;
+		var reflectX = this.x/r, reflectY = this.y/r;
+		/*var newVelX = (Math.pow(reflectX,2) - Math.pow(reflectY,2)) * this.velX + 2 * reflectX * reflectY * this.velY,
+		newVelY = (Math.pow(reflectY,2) - Math.pow(reflectX,2)) * this.velY + 2 * reflectX * reflectY * this.velX;
+		this.velX = newVelX/r;
+		this.velY = newVelY/r;*/
+		var newVelX = this.velX - 2 * (this.velX * reflectX+ this.velY * reflectY) * reflectX;
+		var newVelY = this.velY - 2 * (this.velX * reflectX+ this.velY * reflectY) * reflectY;
+		this.velX = newVelX;
+		this.velY = newVelY;
+		playSound("lilpop");
+	    }
+	    return this.z;
+	};
+
+    }
+    var bullets = new Array();
+    var bulletSpeed = 40;
+
+    player.updateRole = function() {
+	if (mousePressed) {
+	    var bulletScale = bulletSpeed/Math.sqrt( Math.pow(player.mouseX,2) + Math.pow(player.mouseY,2) + Math.pow(focalDist, 2));
+	    bul = new Bullet(player.shipX, player.shipY, 0, player.mouseX * bulletScale, player.mouseY * bulletScale, focalDist * bulletScale + player.shipVel);
+	    console.log([player.mouseX, player.mouseY]);
+	    bullets.push(bul);
+	}
+	for (var i = 0; i < bullets.length; i++) {
+	    var bullet = bullets[i];
+	    bullet.update();
+	    if (bullet.z > lightDist) {
+		bullets.splice(i,1);
+	    } else if (bullet.z < -focalDist) {
+		bullets.splice(i,1);
+		//TODO: instead send to other player
+
+	    }
+	    bullet.draw(player.shipX, player.shipY);
 	}
     };
 }
