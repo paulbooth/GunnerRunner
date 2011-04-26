@@ -4,7 +4,7 @@ var canvasWidth;
 var maxTunnelRadius;
 
 //play sound effects?
-var soundEffects = false;
+var soundEffects = true;
 var numTunnelLines = 7;
 var updateTime = 1000/30;
 var focalDist = 100;
@@ -46,7 +46,7 @@ function playSound(sound) {
     }
     //console.log(sound);
     var audioChannel = audioChannels[currentAudioChannel];
-    audioChannel.src = "audio/"+sound+".ogg";
+    audioChannel.src = "audio/"+"lilpow"+".ogg";
     audioChannel.load();
     audioChannel.play();
     currentAudioChannel++;
@@ -781,6 +781,7 @@ function initGunner() {
 	    focalDist * bulletScale + player.shipVel);
 	    //console.log([player.mouseX, player.mouseY]);
 	    bullets.push(bul);
+	playSound("lilpow");
     };
 
     player.drawShip = function() {
