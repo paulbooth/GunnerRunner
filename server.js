@@ -17,7 +17,8 @@ var socket = io.listen(server);
 
 var pilotTaken = false;
 var gunnerTaken = false;
-
+var pilotClient = null, gunnerClient = null;
+var waiting = [];
 socket.on('connection', function(client) {
 	    /*getNetworkIP(function (error, ip) {
 			   console.log(ip);
@@ -29,20 +30,29 @@ socket.on('connection', function(client) {
 	    if (!pilotTaken) {
 	      client.send({'role': 'pilot'});
 	      client.role = 'pilot';
+		pilotClient = client;
 	      pilotTaken = true;
+		client.send({'background': "#0F0"});
 	      console.log('PILOT CONNECTED');
 	    } else if (!gunnerTaken) {
 	      client.send({'role': 'gunner'});
+		client.send({'background': "#0F0"});
+		gunnerClient = client;
 	      client.role = 'gunner';
 	      gunnerTaken = true;
 	      console.log('GUNNER CONNECTED');
 	    } else {
-	      client.send('too many players');
+		client.send({role:'waiting'});
+		waiting.push(client);
+		client.send({'background': "#F00"});
+		client.send({alert:'too many players'});
 	    }
 
 	    if (pilotTaken && gunnerTaken) {
-	      client.send({'gameStart': true});
-	      client.broadcast({'gameStart': true});
+		pilotClient.send({'background': "#FFF"});
+		gunnerClient.send({'background':"#FFF"});
+	      pilotClient.send({'gameStart': true});
+	      gunnerClient.send({'gameStart': true});
 	    }
 
 	    client.on('message', function(event) {
@@ -53,11 +63,24 @@ socket.on('connection', function(client) {
 			console.log('our ' + client.role + " disconnected :'-(");
 			if (client.role === 'pilot') {
 			  pilotTaken = false;
+			    pilotClient = null;
 			} else if (client.role === 'gunner') {
 			  gunnerTaken = false;
+			    gunnerClient = null;
 			} else {
-			  console.log('something is technically wrong...');
+			  console.log('Our...other guy... disconnected...');
 			}
+			  if (client.role == 'pilot'
+			      || client.role == 'gunner') {
+			      if (waiting.length == 0) {
+				  client.broadcast({'background': "#0F0"});
+			      } else {
+				  waiting[0].send({reconnect:client.role});
+				  waiting.splice(0,1);
+			      }
+
+			  }
+
 		      });
 	    /*setInterval(function() {
 	     client.send('message');
