@@ -82,7 +82,7 @@ function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     //console.log(x,y,r);
     context.arc(x, y, r, 0, Math.PI*2, false);
     context.closePath();
-     if (borderstyle != null) {
+    if (borderstyle != null) {
 	context.strokeStyle = borderstyle;
 	//context.lineWidth = 2;
 	context.stroke();
@@ -100,8 +100,8 @@ function adjustFor3D(r, dist) {
 function getColorAtDistance(dist) {
     return Math.floor(255
 		      -255*
-	       adjustFor3D(255 ,dist)
-	       /adjustFor3D(255,0) );
+		      adjustFor3D(255 ,dist)
+		      /adjustFor3D(255,0) );
 }
 
 function isPointInPoly(poly, pt){
@@ -117,7 +117,7 @@ function isPointInPoly(poly, pt){
 //waiting people aren't playing
 function send(i) {
     if (player.role != 'waiting')
-    socket.send(i);
+	socket.send(i);
 }
 
 function Barrier() {
@@ -272,6 +272,7 @@ function Barrier() {
 		}
 	    }
 	}
+
     };
 
     this.checkForHit = function(shipX, shipY) {
@@ -279,11 +280,11 @@ function Barrier() {
 
 	for (var i = 0; i < this.holes.length; i++) {
 	    var hole = this.holes[i], holerad,
-		holex = hole[0] * Math.cos(hole[1] + this.rotation) * maxTunnelRadius,
-		holey = hole[0] * Math.sin(hole[1] + this.rotation) * maxTunnelRadius;
+	    holex = hole[0] * Math.cos(hole[1] + this.rotation) * maxTunnelRadius,
+	    holey = hole[0] * Math.sin(hole[1] + this.rotation) * maxTunnelRadius;
 	    if (hole.length>3)
 		holerad= (hole[4] * (hole[2] - hole[3]) + hole[3])
-			      * maxTunnelRadius;
+		* maxTunnelRadius;
 	    else
 		holerad = hole[2] * maxTunnelRadius;
 
@@ -298,73 +299,78 @@ function Barrier() {
 	}
 	return hit;
     };
-}
+    this.getZ = function() {
+	return this.barrierDist;
+    };
+}//end Barrier function
 
 
-    function Bullet(x,y,z,xs,ys,zs) {
-	this.x = x;
-	this.y = y;
-	this.z = z;
-	this.velX = xs;
-	this.velY = ys;
-	this.velZ = zs;
-	this.lifeTime = bulletLifeTime;
+function Bullet(x,y,z,xs,ys,zs) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.velX = xs;
+    this.velY = ys;
+    this.velZ = zs;
+    this.lifeTime = bulletLifeTime;
 
-	var bulletRadius = .01 * maxTunnelRadius;
-	//Bullet draw
-	this.draw = function(cameraX, cameraY) {
-	    drawingContext.lineWidth = 1;
-	    var color = getColorAtDistance(this.z);
+    var bulletRadius = .01 * maxTunnelRadius;
+    //Bullet draw
+    this.draw = function(cameraX, cameraY) {
+	drawingContext.lineWidth = 1;
+	var color = getColorAtDistance(this.z);
 
-	    drawCircle(drawingContext,
-		       centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z),
-		       centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z),
-		       adjustFor3D(bulletRadius, this.z),
-		       'rgb(' + [0, 0, 0].toString() + ')',
-		       'rgb(' + [color, color, color].toString() + ')');
-	};
-	//Bullet update
-	this.update = function() {
-	    this.lifeTime--;
-	    if (this.lifeTime <= 0) return false;
-	    this.x += this.velX;
-	    this.y += this.velY;
-	    this.z += this.velZ - player.shipVel;
-	    var r = Math.sqrt(
+	drawCircle(drawingContext,
+		   centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z),
+		   centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z),
+		   adjustFor3D(bulletRadius, this.z),
+		   'rgb(' + [0, 0, 0].toString() + ')',
+		   'rgb(' + [color, color, color].toString() + ')');
+    };
+    //Bullet update
+    this.update = function() {
+	this.lifeTime--;
+	if (this.lifeTime <= 0) return false;
+	this.x += this.velX;
+	this.y += this.velY;
+	this.z += this.velZ - player.shipVel;
+	var r = Math.sqrt(
 	    Math.pow(this.x, 2)
 		+ Math.pow( this.y, 2));
 
-	    if ( r > maxTunnelRadius - bulletRadius && this.velX * this.x + this.velY * this.y > 0) {
-		this.x *= maxTunnelRadius / r;
-		this.y *= maxTunnelRadius / r;
-		var reflectX = this.x/r, reflectY = this.y/r;
-		/*var newVelX = (Math.pow(reflectX,2) - Math.pow(reflectY,2)) * this.velX + 2 * reflectX * reflectY * this.velY,
-		newVelY = (Math.pow(reflectY,2) - Math.pow(reflectX,2)) * this.velY + 2 * reflectX * reflectY * this.velX;
-		this.velX = newVelX/r;
-		this.velY = newVelY/r;*/
-		var newVelX = this.velX - 2 * (this.velX * reflectX+ this.velY * reflectY) * reflectX;
-		var newVelY = this.velY - 2 * (this.velX * reflectX+ this.velY * reflectY) * reflectY;
-		this.velX = newVelX;
-		this.velY = newVelY;
-		playSound("bigsh");
-	    }
-	    for (var i = 0; i < player.barriers.length; i++) {
-		var barrier = player.barriers[i];
-		if (this.z >= barrier.barrierDist
-		    && this.z < barrier.barrierDist
-		    +Math.max(barrier.thickness, this.velZ)) {
-		    if (barrier.checkForHit(this.x, this.y)) {
-			this.velZ *= -1;
-			playSound("lilpow");
-		    }
-
-		    break;
+	if ( r > maxTunnelRadius - bulletRadius && this.velX * this.x + this.velY * this.y > 0) {
+	    this.x *= maxTunnelRadius / r;
+	    this.y *= maxTunnelRadius / r;
+	    var reflectX = this.x/r, reflectY = this.y/r;
+	    /*var newVelX = (Math.pow(reflectX,2) - Math.pow(reflectY,2)) * this.velX + 2 * reflectX * reflectY * this.velY,
+	     newVelY = (Math.pow(reflectY,2) - Math.pow(reflectX,2)) * this.velY + 2 * reflectX * reflectY * this.velX;
+	     this.velX = newVelX/r;
+	     this.velY = newVelY/r;*/
+	    var newVelX = this.velX - 2 * (this.velX * reflectX+ this.velY * reflectY) * reflectX;
+	    var newVelY = this.velY - 2 * (this.velX * reflectX+ this.velY * reflectY) * reflectY;
+	    this.velX = newVelX;
+	    this.velY = newVelY;
+	    playSound("bigsh");
+	}
+	for (var i = 0; i < player.barriers.length; i++) {
+	    var barrier = player.barriers[i];
+	    if (this.z >= barrier.barrierDist
+		&& this.z < barrier.barrierDist
+		+Math.max(barrier.thickness, this.velZ)) {
+		if (barrier.checkForHit(this.x, this.y)) {
+		    this.velZ *= -1;
+		    playSound("lilpow");
 		}
-	    }
-	    return true;//still alive
-	};
 
+		break;
+	    }
+	}
+	return true;//still alive
+    };
+    this.getZ = function() {
+	return this.z;
     }
+}// end Bullet function
 
 function Player(role) {
     this.shipX = 0;
@@ -388,8 +394,8 @@ function Player(role) {
 	this.clear();
 	this.drawTunnel();
 	this.drawTunnelIndicators();
-	this.drawBarriers();
-	this.drawBullets();
+	this.drawObjects();
+
 	this.drawShip();
 
 	this.updateRole();
@@ -422,10 +428,15 @@ function Player(role) {
 			this.bounce();
 
 		    } else {
-			this.shipVel += barrier.barrierBoost;
-			barrier.barrierBoost = 0; // we used it up
-			playSound("woom");
-			//made past! give boost
+			if (this.shipVel > 0) {
+
+
+			    this.shipVel += barrier.barrierBoost;
+			    barrier.barrierBoost = 0;
+			    // we used it up
+			    playSound("woom");
+			    //made past! give boost
+			}
 		    }
 		} else { //we are gunner
 		    if (this.shipVel > 0
@@ -440,19 +451,19 @@ function Player(role) {
 		this.barriers.splice(i,1);
 	    } else if (dist <= -focalDist) {
 		//TODO: send it to the other player's domain
-	/*	this.barriers[i].barrierDist = lightDist;
-		this.barriers[i].holes=[];
-		this.barriers[i].makeRandomBarrier();
-		this.barriers.unshift(this.barriers.splice(i,1)[0]);
-	 */
+		/*	this.barriers[i].barrierDist = lightDist;
+		 this.barriers[i].holes=[];
+		 this.barriers[i].makeRandomBarrier();
+		 this.barriers.unshift(this.barriers.splice(i,1)[0]);
+		 */
 		if (this.role == 'gunner') {
 		    /*if (this.shipVel > 0 && barrier.checkForHit(this.shipX, this.shipY)) {
-			send({bounce:true});
-		    } else {*/
+		     send({bounce:true});
+		     } else {*/
 
-			send({barrier:this.barriers[i]});
-			this.barriers.splice(i,1);
-		   // }
+		    send({barrier:this.barriers[i]});
+		    this.barriers.splice(i,1);
+		    // }
 		} else if (this.role == 'pilot') {
 
 		    send({barrier:this.barriers[i]});
@@ -473,23 +484,23 @@ function Player(role) {
 	    if (bullet.update()) {
 		//console.log(bullet.lifeTime);
 
-	   // if (bullet.z > 0 && bullet.z < bullet.velZ) {
+		// if (bullet.z > 0 && bullet.z < bullet.velZ) {
 		//console.log("plane: x:"+bullet.x+" y:"+bullet.y);
-	    //}
-	    if (bullet.z > lightDist) {
-		this.bullets.splice(i,1);
-		i--;
-	    } else if (bullet.z < -focalDist) {
-		send({bullet:bullet});
-		this.bullets.splice(i,1);
-		i--;
-	    }
-		} else {
-		     //our bullet has died!
+		//}
+		if (bullet.z > lightDist) {
 		    this.bullets.splice(i,1);
 		    i--;
-		    //alert("die!");
+		} else if (bullet.z < -focalDist) {
+		    send({bullet:bullet});
+		    this.bullets.splice(i,1);
+		    i--;
 		}
+	    } else {
+		//our bullet has died!
+		this.bullets.splice(i,1);
+		i--;
+		//alert("die!");
+	    }
 	}
     };
 
@@ -497,7 +508,7 @@ function Player(role) {
 	//if (this.shipVel < 0) return;
 	this.shipVel *= -barrierBounce;
 	if (Math.abs(this.shipVel) > acceleration)
-	playSound("lilpow");
+	    playSound("lilpow");
     };
 
     this.updateRole = function() {};
@@ -512,8 +523,8 @@ function Player(role) {
 	    var indicatorY = centerY
 		- adjustFor3D(this.shipY, indicatorDist);
 	    var color = getColorAtDistance(indicatorDist);
-		drawingContext.lineWidth = Math.max(indicatorRadius
-						    - adjustFor3D(maxTunnelRadius ,indicatorDist+10), 1);
+	    drawingContext.lineWidth = Math.max(indicatorRadius
+						- adjustFor3D(maxTunnelRadius ,indicatorDist+10), 1);
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
 		       'rgb(' + [color,color,color].toString() + ')')
 	    /*
@@ -522,6 +533,25 @@ function Player(role) {
 	     :null );*/
 	}
 
+    };
+
+    //objects must have draw(x,y) function
+    this.drawObjects = function() {
+	var objects = new Array();
+	objects = objects.concat(this.barriers).concat(this.bullets);
+	//objects.concat(this.bullets);
+	console.log(objects);
+	objects.sort(this.sortObjectFunction);
+	for (var i = 0; i < objects.length; i++) {
+	    objects[i].draw(this.shipX, this.shipY);
+	}
+	/*this.drawBarriers();
+	 this.drawBullets();*/
+    };
+
+    //objects must have getZ function
+    this.sortObjectFunction = function(obj1, obj2) {
+	return obj2.getZ() - obj1.getZ();
     };
 
     this.drawBarriers = function () {
@@ -534,7 +564,7 @@ function Player(role) {
     this.drawBullets = function() {
 	for (var i = 0; i < this.bullets.length; i++) {
 	    var bullet = this.bullets[i];
-	    bullet.draw(player.shipX, player.shipY);
+	    bullet.draw(this.shipX, this.shipY);
 	}
     };
 
@@ -560,17 +590,17 @@ function Player(role) {
 	drawingContext.strokeStyle = drawingContext.fillStyle;
 	drawingContext.stroke();
 	/* broken arrow no good anyway
-	drawingContext.beginPath();
-	drawingContext.moveTo(this.mouseX, this.mouseY);
-	drawingContext.lineTo(this.mouseX*.9-this.mouseY/maxTunnelRadius*20,
-			      this.mouseY*.9+this.mouseX/maxTunnelRadius*20);
-	drawingContext.lineTo(this.mouseX*.9+this.mouseY/maxTunnelRadius*20,
-			      this.mouseY*.9-this.mouseX/maxTunnelRadius*20);
-	drawingContext.lineTo(this.mouseX, this.mouseY);
-	drawingContext.closePath();
-	drawingContext.fillStyle="#000";
-	drawingContext.stroke();
-	drawingContext.fill();*/
+	 drawingContext.beginPath();
+	 drawingContext.moveTo(this.mouseX, this.mouseY);
+	 drawingContext.lineTo(this.mouseX*.9-this.mouseY/maxTunnelRadius*20,
+	 this.mouseY*.9+this.mouseX/maxTunnelRadius*20);
+	 drawingContext.lineTo(this.mouseX*.9+this.mouseY/maxTunnelRadius*20,
+	 this.mouseY*.9-this.mouseX/maxTunnelRadius*20);
+	 drawingContext.lineTo(this.mouseX, this.mouseY);
+	 drawingContext.closePath();
+	 drawingContext.fillStyle="#000";
+	 drawingContext.stroke();
+	 drawingContext.fill();*/
     };
 
     this.clear = function() {
@@ -596,8 +626,8 @@ function Player(role) {
 	//
 	//want to clear out the center hole for the tunnel
 	/*drawCircle(drawingContext, centerX - this.shipX,
-		   centerY - this.shipY, beginTunnelRadius - 1,
-		   '#fff', '#fff');*/
+	 centerY - this.shipY, beginTunnelRadius - 1,
+	 '#fff', '#fff');*/
 	//drawingContext.globalCompositeOperation = 'source-over';
 	//now want everything else to draw default
 
@@ -647,7 +677,7 @@ function Player(role) {
 
 function update() {
     player.update();
-//    console.log(player.barriers.length);
+    //    console.log(player.barriers.length);
 }
 
 function init() {
@@ -724,12 +754,12 @@ function initSocket() {
 	      });
 
     socket.on('message', function(evt) {
-		 /* if (player.role == 'waiting') {
-		      if ('reconnect' in evt) {
-			  location.reload(true);
-		      }
-		      return;
-		  }*/
+		  /* if (player.role == 'waiting') {
+		   if ('reconnect' in evt) {
+		   location.reload(true);
+		   }
+		   return;
+		   }*/
 		  if ('role' in evt) {//we got a thing to tell us what role we be
 		      player.role = evt.role;
 		      if (player.role == 'pilot') {
@@ -741,8 +771,8 @@ function initSocket() {
 
 		  } else if ('gameStart' in evt) {
 		      if (player.role == 'gunner' || player.role == 'pilot') {
-		      clearInterval(updateIntervalId);
-		      updateIntervalId = setInterval(update, updateTime);
+			  clearInterval(updateIntervalId);
+			  updateIntervalId = setInterval(update, updateTime);
 			  playSound("gogogo");
 		      }
 		  } else if ('shipX' in evt) {
@@ -771,7 +801,7 @@ function initSocket() {
 			      hole[1] -= 2*math.PI;
 			  bar.holes.push(hole);
 
-			 // console.log("old:"+oldangle+" new:"+Math.floor(hole[1]/Math.PI*180));
+			  // console.log("old:"+oldangle+" new:"+Math.floor(hole[1]/Math.PI*180));
 		      }
 		      //bar.holes = bar2.holes;
 		      bar.rotation = bar2.rotation;
@@ -780,12 +810,12 @@ function initSocket() {
 		      //bar2.__proto__ = bar;
 
 		      /*if ( player.role == "pilot" && bar.checkForHit(player.shipX,
-		      player.shipY)) {
-			  player.bounce();
-			  send({barrier:bar});
-		      } else {*/
-			      player.barriers.unshift(bar);
-			 // }
+		       player.shipY)) {
+		       player.bounce();
+		       send({barrier:bar});
+		       } else {*/
+		      player.barriers.unshift(bar);
+		      // }
 
 
 		      //alert("barrier\n"+evt.barrier.holes);
@@ -819,10 +849,10 @@ function initPilot() {
      bar.holes.push([0,.75, .25, 1, .005]);
 
      player.barriers.push(bar);*/
-   /* var bar = new Barrier();
-    bar.barrierDist = lightDist;
-    bar.holes = [[0,0,.5,1,0]];
-    player.barriers.push(bar);*/
+    /* var bar = new Barrier();
+     bar.barrierDist = lightDist;
+     bar.holes = [[0,0,.5,1,0]];
+     player.barriers.push(bar);*/
     for (var i = 1000; i < lightDist; i+= 1000) {
 
 	var bar = new Barrier();
@@ -859,8 +889,8 @@ function initPilot() {
 	//console.log(player.mouseX, player.shipX, mouseTrailProp);
 
 	send({shipX: this.shipX/maxTunnelRadius,
-		     shipY: this.shipY/maxTunnelRadius,
-		     shipVel: this.shipVel});
+	      shipY: this.shipY/maxTunnelRadius,
+	      shipVel: this.shipVel});
 	player.shipVel *= friction;
 	if (Math.abs(player.shipVel) < cutoffSpeed) {
 	    player.shipVel = 0;
@@ -873,7 +903,7 @@ function initPilot() {
 	}
 	if (backgroundMusic) {
 	    if (player.shipVel > 0)
-	    backgroundMusicChannel.volume = Math.min(player.shipVel/2, clippingSpeed)/clippingSpeed;
+		backgroundMusicChannel.volume = Math.min(player.shipVel/2, clippingSpeed)/clippingSpeed;
 	    else
 		backgroundMusicChannel.volume = 0;
 	}
@@ -911,14 +941,14 @@ function initGunner() {
     function shootBullet() {
 	//console.log("shoot: x:"+player.mouseX+" y:"+player.mouseY);
 	var bulletScale = bulletSpeed/Math.sqrt( Math.pow(gunX,2) + Math.pow(gunY,2) + Math.pow(focalDist, 2));
-	    bul = new Bullet(player.shipX,
-	    player.shipY,
-	    -focalDist,
-	    gunX * bulletScale,
-	    gunY * bulletScale,
-	    focalDist * bulletScale + player.shipVel);
-	    //console.log([player.mouseX, player.mouseY]);
-	    player.bullets.push(bul);
+	bul = new Bullet(player.shipX,
+			 player.shipY,
+			 -focalDist,
+			 gunX * bulletScale,
+			 gunY * bulletScale,
+			 focalDist * bulletScale + player.shipVel);
+	//console.log([player.mouseX, player.mouseY]);
+	player.bullets.push(bul);
 	playSound("doo");
     };
     player.drawCursor = function() {
@@ -938,9 +968,9 @@ function initGunner() {
 				reloadWidth,reloadHeight);
 	drawingContext.lineWidth = 1;
 	drawingContext.strokeRect(centerX + gunX
-				+ boxSize/2 + reloadOffset,
-				centerY + gunY -  boxSize/2,
-				reloadWidth,boxSize);
+				  + boxSize/2 + reloadOffset,
+				  centerY + gunY -  boxSize/2,
+				  reloadWidth,boxSize);
 
     };
 
