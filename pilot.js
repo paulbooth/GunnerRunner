@@ -7,15 +7,15 @@ var maxTunnelRadius;
 var soundEffects = true;
 //play background music?
 var backgroundMusic = true;
-var backgroundMusicURL = "audio/creepup.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
+var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
-var numTunnelLines = 7;
+var numTunnelLines = 9;
 var updateTime = 1000/30;
-var focalDist = 100;
+var focalDist = 70 + Math.random() * 80;
 var lightDist = 5000;
 var tunnelLineSpeed = Math.PI/200;
 
-var bulletLifeTime = 100;
+var bulletLifeTime = 300;
 
 //for pilot
 var acceleration = .5, backwardAcceleration = .5;
@@ -82,13 +82,13 @@ function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     //console.log(x,y,r);
     context.arc(x, y, r, 0, Math.PI*2, false);
     context.closePath();
+     if (borderstyle != null) {
+	context.strokeStyle = borderstyle;
+	//context.lineWidth = 2;
+	context.stroke();
+    }
     if (fillstyle != null) {
 	context.fillStyle = fillstyle;
-    }
-    context.strokeStyle = borderstyle;
-    //context.lineWidth = 2;
-    context.stroke();
-    if (fillstyle != null) {
 	context.fill();
     }
 }
@@ -313,9 +313,15 @@ function Barrier() {
 	var bulletRadius = .01 * maxTunnelRadius;
 	//Bullet draw
 	this.draw = function(cameraX, cameraY) {
-	    drawingContext.lineWidth = 2;
+	    drawingContext.lineWidth = 1;
 	    var color = getColorAtDistance(this.z);
-	    drawCircle(drawingContext, centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z), centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z), adjustFor3D(bulletRadius, this.z),'rgb(' + [color,color,color].toString() + ')', 'rgb(' + [255,color,color].toString() + ')');
+
+	    drawCircle(drawingContext,
+		       centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z),
+		       centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z),
+		       adjustFor3D(bulletRadius, this.z),
+		       'rgb(' + [0, 0, 0].toString() + ')',
+		       'rgb(' + [color, color, color].toString() + ')');
 	};
 	//Bullet update
 	this.update = function() {
@@ -365,7 +371,7 @@ function Player(role) {
     this.shipY = 0;
     this.mouseX = 0;
     this.mouseY = 0;
-    this.indicatorDelta = 500; // distance between indicators
+    this.indicatorDelta = 200; // distance between indicators
     this.indicatorOffset = 1000;
     // distance between us and first indicator
     this.shipVel = 20;
@@ -532,11 +538,27 @@ function Player(role) {
 	}
     };
 
+    //for pilot. gets overrided for gunner
     this.drawShip = function() {
-	/*drawingContext.fillStyle="rgba(0,255,0,.1)";
-	drawingContext.fillRect(centerX - 10, centerY - 10, 20, 20);
-	drawingContext.fillStyle="rgba(0,50,0,.5)";
-	drawingContext.fillRect(centerX - 1, centerY - 1, 2, 2);*/
+	//drawingContext.fillStyle="rgba(0,255,0,.1)";
+	//drawingContext.fillRect(centerX - 10, centerY - 10, 20, 20);
+
+	drawingContext.fillStyle="rgba(50,0,0,.5)";
+	drawingContext.fillRect(centerX - 2, centerY - 2, 4, 4);
+	drawingContext.lineWidth = 4;
+	drawingContext.beginPath();
+	drawingContext.moveTo(centerX - 10, centerY);
+	drawingContext.lineTo(centerX - 20, centerY);
+	drawingContext.moveTo(centerX + 10, centerY);
+	drawingContext.lineTo(centerX + 20, centerY);
+	drawingContext.moveTo(centerX, centerY - 10);
+	drawingContext.lineTo(centerX, centerY - 20);
+	drawingContext.moveTo(centerX, centerY + 10);
+	drawingContext.lineTo(centerX, centerY + 20);
+
+	drawingContext.closePath();
+	drawingContext.strokeStyle = drawingContext.fillStyle;
+	drawingContext.stroke();
 	/* broken arrow no good anyway
 	drawingContext.beginPath();
 	drawingContext.moveTo(this.mouseX, this.mouseY);
@@ -801,7 +823,7 @@ function initPilot() {
     bar.barrierDist = lightDist;
     bar.holes = [[0,0,.5,1,0]];
     player.barriers.push(bar);*/
-    for (var i = 1000; i < lightDist; i+= 2000) {
+    for (var i = 1000; i < lightDist; i+= 1000) {
 
 	var bar = new Barrier();
 	bar.makeRandomBarrier();
@@ -899,11 +921,32 @@ function initGunner() {
 	    player.bullets.push(bul);
 	playSound("doo");
     };
-
-    player.drawShip = function() {
+    player.drawCursor = function() {
+	var boxSize = 20;
+	var reloadWidth = boxSize/2;
+	var reloadOffset = 5;
 	drawingContext.strokeStyle = "#000";
 	drawingContext.lineWidth = 2;
-	drawingContext.strokeRect(centerX + gunX - 10, centerY + gunY - 10, 20,20);
+	drawingContext.strokeRect(centerX + gunX - boxSize/2,
+				  centerY + gunY - boxSize/2,
+				  boxSize, boxSize);
+	drawingContext.fillStyle = "#0c0";
+	var reloadHeight = boxSize * curbulletTime / bulletTime;
+	drawingContext.fillRect(centerX + gunX
+				+ boxSize/2 + reloadOffset,
+				centerY + gunY + boxSize/2 - reloadHeight,
+				reloadWidth,reloadHeight);
+	drawingContext.lineWidth = 1;
+	drawingContext.strokeRect(centerX + gunX
+				+ boxSize/2 + reloadOffset,
+				centerY + gunY -  boxSize/2,
+				reloadWidth,boxSize);
+
+    };
+
+    player.drawShip = function() {
+	player.drawCursor();
+
     };
 }
 

@@ -20,13 +20,13 @@ var gunnerTaken = false;
 var pilotClient = null, gunnerClient = null;
 var waiting = [];
 socket.on('connection', function(client) {
-	    /*getNetworkIP(function (error, ip) {
+	    getNetworkIP(function (error, ip) {
 			   console.log(ip);
 			   if (error) {
 			     console.log('error:', error);
 			   }
 			 }, false);
-	    // usage example for getNetworkIP below*/
+	    // usage example for getNetworkIP below
 	    if (!pilotTaken) {
 	      client.send({'role': 'pilot'});
 	      client.role = 'pilot';
