@@ -47,12 +47,19 @@ var mousePressed = false, leftMouse = true;
 var wentOutMousePressed = false;
 
 var backgroundMusicChannel = new Audio();
-function playSound(sound) {
+function playSound(sound, volume) {
     if (!soundEffects) {
 	return;
     }
     //console.log(sound);
     var audioChannel = audioChannels[currentAudioChannel];
+    if (volume) {
+	if (volume < .01) return;
+	audioChannel.volume = Math.min(volume,1);
+    } else {
+	audioChannel.volume = 1;
+    }
+    //console.log(audioChannel.volume);
     audioChannel.src = "audio/"+sound+".ogg";
     audioChannel.load();
     audioChannel.play();
@@ -350,7 +357,7 @@ function Bullet(x,y,z,xs,ys,zs) {
 	    var newVelY = this.velY - 2 * (this.velX * reflectX+ this.velY * reflectY) * reflectY;
 	    this.velX = newVelX;
 	    this.velY = newVelY;
-	    playSound("bigsh");
+	    playSound("bigsh", adjustFor3D(1,this.z));
 	}
 	for (var i = 0; i < player.barriers.length; i++) {
 	    var barrier = player.barriers[i];
@@ -359,7 +366,12 @@ function Bullet(x,y,z,xs,ys,zs) {
 		+Math.max(barrier.thickness, this.velZ)) {
 		if (barrier.checkForHit(this.x, this.y)) {
 		    this.velZ *= -1;
-		    playSound("lilpow");
+		    if (this.velZ > 0) {
+			this.z = barrier.barrierDist +barrier.thickness;
+		    } else {
+			this.z = barrier.barrierDist;
+		    }
+		    playSound("lilpow", adjustFor3D(1,this.z));
 		}
 
 		break;
@@ -540,7 +552,7 @@ function Player(role) {
 	var objects = new Array();
 	objects = objects.concat(this.barriers).concat(this.bullets);
 	//objects.concat(this.bullets);
-	console.log(objects);
+	//console.log(objects);
 	objects.sort(this.sortObjectFunction);
 	for (var i = 0; i < objects.length; i++) {
 	    objects[i].draw(this.shipX, this.shipY);
@@ -723,6 +735,25 @@ function initMouse() {
     maincanvas.onmouseup = function(event) {
 	event.preventDefault();
 	mousePressed = false;
+    };
+    document.onkeydown =
+	function(e) {
+	   // alert(e);
+	    var unicode=e.keyCode? e.keyCode : e.charCode;
+	    if (!mousePressed && unicode == 32) {
+		mousePressed = true;
+		leftMouse = true;
+	    }
+	    //console.log(unicode);
+    };
+    document.onkeyup = function(e) {
+	   // alert(e);
+	    var unicode=e.keyCode? e.keyCode : e.charCode;
+	    if (unicode == 32) {
+		mousePressed = false;
+		leftMouse = true;
+	    }
+	    //console.log(unicode);
     };
     maincanvas.onmouseout = function(event) {
 	event.preventDefault();
@@ -911,6 +942,9 @@ function initPilot() {
     if (backgroundMusic) {
 	startBackgroundMusic();
     }
+
+
+
 }
 
 function initGunner() {
