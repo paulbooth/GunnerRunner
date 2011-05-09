@@ -4,9 +4,9 @@ var canvasWidth;
 var maxTunnelRadius;
 
 //play sound effects?
-var soundEffects = false;
+var soundEffects = true;
 //play background music?
-var backgroundMusic = false;
+var backgroundMusic = true;
 var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
 var numTunnelLines = 9;
@@ -21,7 +21,7 @@ var enemyHealth = 100;
 //how much damage a bullet does to enemies
 var bulletDamage = 10;
 //probability of enemy appearance
-var enemyChance = .1;
+var enemyChance = .5;
 //for pilot
 var acceleration = .5, backwardAcceleration = .5;
 
@@ -29,6 +29,20 @@ var acceleration = .5, backwardAcceleration = .5;
 var barrierBounce = .65;
 //amount of speed increase through hole
 var barrierBoost = 5;
+/*
+//keyboard movement speed
+var keyboardSpeed = .05;
+//using keyboardcontrols?
+//use zero for no, set which key in onkeyboard
+var keyboardControl = [];
+var kbforward = 32, //space
+kbback = 66, //b
+kbleft = 37, // left arrow
+kbup = 38, // up arrow
+kbright = 39, // right arrow
+kbdown = 40; // down arrow
+*/
+
 //friction
 var friction = .99;
 //pilot cutoff speed
@@ -52,6 +66,7 @@ var mousePressed = false, leftMouse = true;
 var wentOutMousePressed = false;
 
 var backgroundMusicChannel = new Audio();
+
 function playSound(sound, volume) {
     if (!soundEffects) {
 	return;
@@ -238,7 +253,7 @@ function Barrier() {
 	}
 
     };
-
+    //barrier draw
     this.draw = function(cameraX, cameraY) {
 	this.drawBack(cameraX, cameraY);
 	var barrierRadius = adjustFor3D(maxTunnelRadius, this.barrierDist);
@@ -249,8 +264,8 @@ function Barrier() {
 	var color = getColorAtDistance(this.barrierDist);
 
 	drawingContext.beginPath();
-	drawingContext.lineWidth = barrierRadius
-	    - adjustFor3D(maxTunnelRadius ,this.barrierDist+10);
+	drawingContext.lineWidth = adjustFor3D(50,this.barrierDist);//3;//barrierRadius
+	    //- adjustFor3D(maxTunnelRadius ,this.barrierDist+10);
 
 	drawingContext.fillStyle = 'rgb(' + [color, color, color].toString() + ')';
 
@@ -259,6 +274,9 @@ function Barrier() {
 	/*
 	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
 	drawingContext.fill();
+	drawingContext.strokeStyle = "#000";
+
+	drawingContext.stroke();
     };
 
     // Barrier update
@@ -410,7 +428,7 @@ function Enemy(x,y,z,xs,ys,zs) {
     this.velZ = zs;
     this.health = enemyHealth;
     //how big is the enemies?
-    var enemySize = .5 * maxTunnelRadius;
+    var enemySize = .25 * maxTunnelRadius;
 
     //Enemy draw
     this.draw = function(cameraX, cameraY) {
@@ -476,6 +494,7 @@ function Enemy(x,y,z,xs,ys,zs) {
     };
 }// end Enemy function
 
+//Player class
 function Player(role) {
     this.shipX = 0;
     this.shipY = 0;
@@ -489,6 +508,7 @@ function Player(role) {
     this.barriers = [];
     this.bullets = [];
     this.enemies = [];
+    this.shipRadius = .07;
 
     this.update = function() {
 
@@ -591,6 +611,9 @@ function Player(role) {
 		if (enemy.z > lightDist*1.2) {
 		    this.enemies.splice(i,1);
 		    i--;
+		} else if (enemy.z < 0 && enemy.z > -focalDist) {
+		    //enemy hit
+
 		} else if (enemy.z < -focalDist) {
 		    send({enemy:enemy});
 		    this.enemies.splice(i,1);
@@ -650,10 +673,16 @@ function Player(role) {
 	    var indicatorY = centerY
 		- adjustFor3D(this.shipY, indicatorDist);
 	    var color = getColorAtDistance(indicatorDist);
+
 	    drawingContext.lineWidth = Math.max(indicatorRadius
 						- adjustFor3D(maxTunnelRadius ,indicatorDist+10), 1);
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
-		       'rgb(' + [color,color,color].toString() + ')')
+		       'rgb(' + [color,color,color].toString() + ')');
+/* cartoon tunnel indicators
+	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius- drawingContext.lineWidth,
+		       'rgb(' + [0,0,0].toString() + ')');
+	     drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius+ drawingContext.lineWidth,
+		       'rgb(' + [0,0,0].toString() + ')');*/
 	    /*
 	     (indicatorDist+this.indicatorDelta>=lightDist)
 	     ?'rgb(' + [color, color, color].toString() + ')'
@@ -699,8 +728,29 @@ function Player(role) {
     this.drawShip = function() {
 	//drawingContext.fillStyle="rgba(0,255,0,.1)";
 	//drawingContext.fillRect(centerX - 10, centerY - 10, 20, 20);
+	var cursorStrokeThickness = 2;
+	drawingContext.fillStyle="rgb(0,0,0)";
 
-	drawingContext.fillStyle="rgba(50,0,0,.5)";
+	drawingContext.strokeStyle=drawingContext.fillStyle;
+	drawingContext.fillRect(centerX - 2 - cursorStrokeThickness, centerY - 2 - cursorStrokeThickness, 4 + 2 * cursorStrokeThickness, 4 + 2 * cursorStrokeThickness);
+	drawingContext.lineWidth = 4 + cursorStrokeThickness;
+	drawingContext.beginPath();
+	drawingContext.moveTo(centerX - 10 + cursorStrokeThickness, centerY);
+	drawingContext.lineTo(centerX - 20 - cursorStrokeThickness, centerY);
+	drawingContext.moveTo(centerX + 10 - cursorStrokeThickness, centerY);
+	drawingContext.lineTo(centerX + 20 + cursorStrokeThickness, centerY);
+	drawingContext.moveTo(centerX, centerY - 10 + cursorStrokeThickness);
+	drawingContext.lineTo(centerX, centerY - 20 - cursorStrokeThickness);
+	drawingContext.moveTo(centerX, centerY + 10 - cursorStrokeThickness);
+	drawingContext.lineTo(centerX, centerY + 20 + cursorStrokeThickness);
+
+	drawingContext.closePath();
+
+	drawingContext.stroke();
+
+	drawingContext.fillStyle = "rgb(255,255,255)";
+	drawingContext.strokeStyle = drawingContext.fillStyle;
+	//drawingContext.strokeStyle="rgb(0,0,0)";
 	drawingContext.fillRect(centerX - 2, centerY - 2, 4, 4);
 	drawingContext.lineWidth = 4;
 	drawingContext.beginPath();
@@ -714,8 +764,9 @@ function Player(role) {
 	drawingContext.lineTo(centerX, centerY + 20);
 
 	drawingContext.closePath();
-	drawingContext.strokeStyle = drawingContext.fillStyle;
+
 	drawingContext.stroke();
+
 	/* broken arrow no good anyway
 	 drawingContext.beginPath();
 	 drawingContext.moveTo(this.mouseX, this.mouseY);
@@ -763,6 +814,7 @@ function Player(role) {
 	for (var i=0; i < numTunnelLines; i++) {
 	    drawingContext.beginPath();
 	    drawingContext.moveTo(lightX, lightY);
+	    //endScale = 1;
 	    var triangleAngle = currentAngle + Math.PI/2;
 	    var lineEndX = beginTunnelRadius * endScale * Math.cos(currentAngle)
 		- this.shipX * endScale + centerX,
@@ -785,7 +837,9 @@ function Player(role) {
 	    //lingrad.addColorStop(1,'black');
 	    drawingContext.fillStyle = lingrad;
 
-	    drawingContext.fill();
+	    drawingContext.fill();/*
+	    drawingContext.strokeStyle = "#000";
+	    drawingContext.stroke();*/
 	    /* this is just lines. I'll save this for now.
 	     drawingContext.lineTo(beginTunnelRadius * Math.cos(currentAngle)
 	     - this.shipX + centerX,
@@ -851,25 +905,54 @@ function initMouse() {
 	event.preventDefault();
 	mousePressed = false;
     };
+    /*
     document.onkeydown =
 	function(e) {
 	   // alert(e);
 	    var unicode=e.keyCode? e.keyCode : e.charCode;
-	    if (!mousePressed && unicode == 32) {
-		mousePressed = true;
-		leftMouse = true;
-	    }
+	    //console.log(unicode);
+	    //if (!mousePressed) {
+		switch(unicode) {
+		case kbforward://space
+		    mousePressed = true;
+		    leftMouse = true;
+		    break;
+		case kbback:
+		    mousePressed = true;
+		    leftMouse = false;
+			break;
+		case kbleft:
+		case kbright:
+		case kbup:
+		case kbdown:
+		    keyboardControl.push(unicode);
+		    break;
+		}
+
+	    //}
 	    //console.log(unicode);
     };
+
     document.onkeyup = function(e) {
 	   // alert(e);
 	    var unicode=e.keyCode? e.keyCode : e.charCode;
-	    if (unicode == 32) {
-		mousePressed = false;
-		leftMouse = true;
-	    }
+	   switch(unicode) {
+		case kbforward:
+		case kbback:
+		    mousePressed = false;
+		    break;
+		case kbleft:
+		case kbright:
+		case kbup:
+		case kbdown:
+	       keyboardControl.splice(
+		   keyboardControl.indexOf(unicode));
+		    break;
+		}
 	    //console.log(unicode);
     };
+*/
+
     maincanvas.onmouseout = function(event) {
 	event.preventDefault();
 	wentOutMousePressed = mousePressed;
@@ -1012,12 +1095,30 @@ function initPilot() {
 	player.barriers.push(bar);
     }
 
-
+    //pilot update
     player.updateRole = function() {
 	var clippingSpeed = 50;
 	var oldRad = Math.sqrt(
 	    Math.pow(player.shipX, 2)
 		+ Math.pow( player.shipY, 2));
+	/*if (keyboardControl.length) {
+	    if (keyboardControl.indexOf(kbup) != -1) {
+		player.shipY -= keyboardSpeed * maxTunnelRadius;
+		player.mouseY -= keyboardSpeed * maxTunnelRadius;
+	    }
+	    if (keyboardControl.indexOf(kbdown) != -1) {
+		player.shipY += keyboardSpeed * maxTunnelRadius;
+		player.mouseY += keyboardSpeed * maxTunnelRadius;
+	    }
+	    if (keyboardControl.indexOf(kbleft) != -1) {
+		player.shipX -= keyboardSpeed * maxTunnelRadius;
+		player.mouseX -= keyboardSpeed * maxTunnelRadius;
+	    }
+	    if (keyboardControl.indexOf(kbright) != -1) {
+		player.shipX += keyboardSpeed * maxTunnelRadius;
+		player.mouseX += keyboardSpeed * maxTunnelRadius;
+	    }
+	}*/
 	var mouseTrailProp = .25
 	    *(Math.min(player.shipVel, clippingSpeed)/clippingSpeed*.9+.1);
 	//a noncontinuous linear hack for a logarithmic or -a/x-b curve
@@ -1029,10 +1130,13 @@ function initPilot() {
 	    Math.pow(player.shipX, 2)
 		+ Math.pow( player.shipY, 2));
 	if ( shipPositionRadius
-	     > maxTunnelRadius) {
-	    player.shipX *= maxTunnelRadius / shipPositionRadius;
-	    player.shipY *= maxTunnelRadius / shipPositionRadius;
-	    if (oldRad < maxTunnelRadius) {
+	     > maxTunnelRadius * (1 - player.shipRadius)) {
+	    player.shipX *= maxTunnelRadius
+		* (1 - player.shipRadius)/ shipPositionRadius;
+	    player.shipY *= maxTunnelRadius
+		* (1 - player.shipRadius)/ shipPositionRadius;
+	    if (oldRad < maxTunnelRadius
+		* (1 - player.shipRadius)) {
 		//playSound("csh");
 	    }
 	}
@@ -1132,7 +1236,9 @@ function initGunner() {
 				  + boxSize/2 + reloadOffset,
 				  centerY + gunY -  boxSize/2,
 				  reloadWidth,boxSize);
-
+	drawingContext.fillStyle = "rgb(255,0,0)";
+	drawingContext.fillRect(centerX + player.mouseX/2-2,
+				centerY + player.mouseY/2-2,4,4);
     };
 
     player.drawShip = function() {
