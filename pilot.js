@@ -9,6 +9,11 @@ var soundEffects = true;
 var backgroundMusic = true;
 var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
+//cartoon
+var cartoon = true;
+var cartoonIndicators = true;
+var cartoonTunnelLines = true;
+
 var numTunnelLines = 9;
 var updateTime = 1000/30;
 var focalDist = 70 + Math.random() * 80;
@@ -21,7 +26,7 @@ var enemyHealth = 100;
 //how much damage a bullet does to enemies
 var bulletDamage = 10;
 //probability of enemy appearance
-var enemyChance = .5;
+var enemyChance = .1;
 //for pilot
 var acceleration = .5, backwardAcceleration = .5;
 
@@ -264,8 +269,6 @@ function Barrier() {
 	var color = getColorAtDistance(this.barrierDist);
 
 	drawingContext.beginPath();
-	drawingContext.lineWidth = adjustFor3D(50,this.barrierDist);//3;//barrierRadius
-	    //- adjustFor3D(maxTunnelRadius ,this.barrierDist+10);
 
 	drawingContext.fillStyle = 'rgb(' + [color, color, color].toString() + ')';
 
@@ -274,9 +277,13 @@ function Barrier() {
 	/*
 	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
 	drawingContext.fill();
-	drawingContext.strokeStyle = "#000";
+	if (cartoon) {
 
+	drawingContext.strokeStyle = "#000";
+	    drawingContext.lineWidth
+		= adjustFor3D(50,this.barrierDist);//3;//barrierRadius
 	drawingContext.stroke();
+	    }
     };
 
     // Barrier update
@@ -436,6 +443,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	//drawingContext.fillRect(0,0,40,40);
 	var color = getColorAtDistance(this.z);
 	//console.log(""+this.x/maxTunnelRadius+","+this.y/maxTunnelRadius+","+this.z);
+	drawingContext.lineWidth = adjustFor3D(50,this.z);
 	drawCircle(drawingContext,
 		   centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z),
 		   centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z),
@@ -678,11 +686,17 @@ function Player(role) {
 						- adjustFor3D(maxTunnelRadius ,indicatorDist+10), 1);
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
 		       'rgb(' + [color,color,color].toString() + ')');
-/* cartoon tunnel indicators
-	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius- drawingContext.lineWidth,
+	    if (cartoonIndicators) {
+
+		drawCircle(drawingContext,
+			   indicatorX, indicatorY,
+			   indicatorRadius- drawingContext.lineWidth,
 		       'rgb(' + [0,0,0].toString() + ')');
-	     drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius+ drawingContext.lineWidth,
-		       'rgb(' + [0,0,0].toString() + ')');*/
+	     drawCircle(drawingContext,
+			indicatorX, indicatorY,
+			indicatorRadius+ drawingContext.lineWidth,
+		       'rgb(' + [0,0,0].toString() + ')');
+		}
 	    /*
 	     (indicatorDist+this.indicatorDelta>=lightDist)
 	     ?'rgb(' + [color, color, color].toString() + ')'
@@ -812,8 +826,6 @@ function Player(role) {
 	//Now to draw triangles! give depth perception
 	var endScale = adjustFor3D(1,-focalDist * .9);
 	for (var i=0; i < numTunnelLines; i++) {
-	    drawingContext.beginPath();
-	    drawingContext.moveTo(lightX, lightY);
 	    //endScale = 1;
 	    var triangleAngle = currentAngle + Math.PI/2;
 	    var lineEndX = beginTunnelRadius * endScale * Math.cos(currentAngle)
@@ -822,6 +834,24 @@ function Player(role) {
 		- this.shipY * endScale + centerY,
 	    triangleBaseX = triangleWidth * endScale * Math.cos(triangleAngle),
 	    triangleBaseY = triangleWidth * endScale * Math.sin(triangleAngle);
+
+	    if (cartoonTunnelLines) {
+		drawingContext.beginPath();
+	    drawingContext.moveTo(lightX, lightY);
+
+		drawingContext.lineTo(lineEndX + 2 * triangleBaseX,
+				      lineEndY + 2 * triangleBaseY
+				 );
+		drawingContext.lineTo(lineEndX - 2 * triangleBaseX,
+				      lineEndY - 2 * triangleBaseY
+				 );
+	    drawingContext.lineTo(lightX, lightY);
+	    drawingContext.closePath();
+	    drawingContext.fillStyle = "#000";
+	    drawingContext.fill();
+	    }
+	    drawingContext.beginPath();
+	    drawingContext.moveTo(lightX, lightY);
 
 	    drawingContext.lineTo(lineEndX + triangleBaseX,
 				  lineEndY + triangleBaseY
@@ -837,9 +867,14 @@ function Player(role) {
 	    //lingrad.addColorStop(1,'black');
 	    drawingContext.fillStyle = lingrad;
 
-	    drawingContext.fill();/*
+
+	    drawingContext.fill();
+	    /* cartoon tunnel lines
 	    drawingContext.strokeStyle = "#000";
-	    drawingContext.stroke();*/
+
+	    drawingContext.stroke();
+*/
+
 	    /* this is just lines. I'll save this for now.
 	     drawingContext.lineTo(beginTunnelRadius * Math.cos(currentAngle)
 	     - this.shipX + centerX,
