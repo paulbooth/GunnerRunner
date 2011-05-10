@@ -1,6 +1,4 @@
 var socket;
-var canvasHeight;
-var canvasWidth;
 var maxTunnelRadius;
 
 //play sound effects?
@@ -11,10 +9,14 @@ var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poe
 
 //cartoon
 var cartoon = true;
-var cartoonIndicators = true;
-var cartoonTunnelLines = true;
+var cartoonTunnel = false;
 
-var numTunnelLines = 9;
+//cooldown time for machine gun
+var bulletTime = 10;
+//how fast bullets move
+var bulletSpeed = 50;
+
+var numTunnelLines = 7;
 var updateTime = 1000/30;
 var focalDist = 70 + Math.random() * 80;
 var lightDist = 5000;
@@ -34,6 +36,8 @@ var acceleration = .5, backwardAcceleration = .5;
 var barrierBounce = .65;
 //amount of speed increase through hole
 var barrierBoost = 5;
+//how big is the enemies?
+var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
 /*
 //keyboard movement speed
 var keyboardSpeed = .05;
@@ -152,6 +156,7 @@ function send(i) {
 	socket.send(i);
 }
 
+//barrier class
 function Barrier() {
     //this.circles = circles;
     this.thickness = 50;
@@ -355,9 +360,8 @@ function Bullet(x,y,z,xs,ys,zs) {
     var bulletRadius = .01 * maxTunnelRadius;
     //Bullet draw
     this.draw = function(cameraX, cameraY) {
-	drawingContext.lineWidth = 1;
+	drawingContext.lineWidth = adjustFor3D(bulletRadius,this.z)*.5;
 	var color = getColorAtDistance(this.z);
-
 	drawCircle(drawingContext,
 		   centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z),
 		   centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z),
@@ -426,6 +430,7 @@ function Bullet(x,y,z,xs,ys,zs) {
     };
 }// end Bullet function
 
+//enemy class
 function Enemy(x,y,z,xs,ys,zs) {
     this.x = x;
     this.y = y;
@@ -434,12 +439,10 @@ function Enemy(x,y,z,xs,ys,zs) {
     this.velY = ys;
     this.velZ = zs;
     this.health = enemyHealth;
-    //how big is the enemies?
-    var enemySize = .25 * maxTunnelRadius;
 
     //Enemy draw
     this.draw = function(cameraX, cameraY) {
-	drawingContext.lineWidth = 1;
+//	drawingContext.lineWidth = 1;
 	//drawingContext.fillRect(0,0,40,40);
 	var color = getColorAtDistance(this.z);
 	//console.log(""+this.x/maxTunnelRadius+","+this.y/maxTunnelRadius+","+this.z);
@@ -447,12 +450,15 @@ function Enemy(x,y,z,xs,ys,zs) {
 	drawCircle(drawingContext,
 		   centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z),
 		   centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z),
-		   adjustFor3D(enemySize, this.z),
+		   adjustFor3D(enemySize * maxTunnelRadius, this.z),
 		   'rgb(' + [0, 0, 0].toString() + ')',
 		   'rgb(' + [color, 255, color].toString() + ')');
+
     };
     //Enemy update
     this.update = function() {
+	this.velX += (Math.random() - .5) * 5;
+	this.velY += (Math.random() - .5) * 5;
 	this.x += this.velX;
 	this.y += this.velY;
 	this.z += this.velZ - player.shipVel;
@@ -460,9 +466,9 @@ function Enemy(x,y,z,xs,ys,zs) {
 	    Math.pow(this.x, 2)
 		+ Math.pow(this.y, 2));
 
-	if ( r > maxTunnelRadius - enemySize && this.velX * this.x + this.velY * this.y > 0) {
-	    this.x *= (maxTunnelRadius - enemySize) / r;
-	    this.y *= (maxTunnelRadius - enemySize) / r;
+	if ( r > maxTunnelRadius * (1 - enemySize) && this.velX * this.x + this.velY * this.y > 0) {
+	    this.x *= maxTunnelRadius * (1 - enemySize) / r;
+	    this.y *= maxTunnelRadius * (1 - enemySize) / r;
 	    var reflectX = this.x/r, reflectY = this.y/r;
 	    /*var newVelX = (Math.pow(reflectX,2) - Math.pow(reflectY,2)) * this.velX + 2 * reflectX * reflectY * this.velY,
 	     newVelY = (Math.pow(reflectY,2) - Math.pow(reflectX,2)) * this.velY + 2 * reflectX * reflectY * this.velX;
@@ -498,7 +504,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	return this.z;
     };
     this.checkForHit = function(x, y) {
-	return Math.pow(enemySize, 2) > Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2);
+	return Math.pow(enemySize * maxTunnelRadius, 2) > Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2);
     };
 }// end Enemy function
 
@@ -518,11 +524,13 @@ function Player(role) {
     this.enemies = [];
     this.shipRadius = .07;
 
+    //player update
     this.update = function() {
 
 	this.updateTunnel();
 	this.updateBarriers();
-	this.updateEnemies();
+	if (this.updateEnemies()){
+
 	this.updateBullets();
 
 	this.clear();
@@ -530,12 +538,14 @@ function Player(role) {
 	this.drawTunnelIndicators();
 	this.drawObjects();
 
-	this.drawShip();
+	this.drawCursor();
 
 	this.updateRole();
+	    }
     };
 
     this.updateTunnel = function() {
+	//tunnelLineSpeed = 0;//this.shipVel / 50./100;
 	initialLineAngle = (initialLineAngle + tunnelLineSpeed) % (Math.PI*2);
 	this.indicatorOffset = (this.indicatorOffset - this.shipVel);
 	if (this.indicatorOffset < 0) {
@@ -619,9 +629,14 @@ function Player(role) {
 		if (enemy.z > lightDist*1.2) {
 		    this.enemies.splice(i,1);
 		    i--;
-		} else if (enemy.z < 0 && enemy.z > -focalDist) {
+		} else if (enemy.z < 0 && enemy.z > -focalDist ) {
 		    //enemy hit
-
+		    if (Math.pow((enemy.x - this.shipX),2) + Math.pow((enemy.y - this.shipY),2) < Math.pow( (this.shipRadius + enemySize) * maxTunnelRadius , 2)) {
+			send({gameOver:true});
+			gameOver();
+			//alert("Game over!");
+			return false;
+		    }
 		} else if (enemy.z < -focalDist) {
 		    send({enemy:enemy});
 		    this.enemies.splice(i,1);
@@ -634,6 +649,7 @@ function Player(role) {
 		//alert("die!");
 	    }
 	}
+	return true;
     };
 
     this.updateBullets = function() {
@@ -686,7 +702,7 @@ function Player(role) {
 						- adjustFor3D(maxTunnelRadius ,indicatorDist+10), 1);
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
 		       'rgb(' + [color,color,color].toString() + ')');
-	    if (cartoonIndicators) {
+	    if (cartoonTunnel) {
 
 		drawCircle(drawingContext,
 			   indicatorX, indicatorY,
@@ -739,7 +755,7 @@ function Player(role) {
     };
 
     //for pilot. gets overrided for gunner
-    this.drawShip = function() {
+    this.drawCursor = function() {
 	//drawingContext.fillStyle="rgba(0,255,0,.1)";
 	//drawingContext.fillRect(centerX - 10, centerY - 10, 20, 20);
 	var cursorStrokeThickness = 2;
@@ -835,7 +851,7 @@ function Player(role) {
 	    triangleBaseX = triangleWidth * endScale * Math.cos(triangleAngle),
 	    triangleBaseY = triangleWidth * endScale * Math.sin(triangleAngle);
 
-	    if (cartoonTunnelLines) {
+	    if (cartoonTunnel) {
 		drawingContext.beginPath();
 	    drawingContext.moveTo(lightX, lightY);
 
@@ -1094,11 +1110,13 @@ function initSocket() {
 		  } else if ('bounce' in evt) {
 		      player.bounce();
 		  } else if ('background' in evt) {
-		      maincanvas.style.backgroundColor=evt.background;
+		      //maincanvas.style.backgroundColor=evt.background;
 		  } else if ('alert' in evt) {
 		      alert(evt.alert);
 		  } else if ('reconnect' in evt) {
-		      location.reload(true);
+		      reset();
+		  } else if ('gameOver' in evt) {
+		      gameOver();
 		  }
 	      });
 
@@ -1208,8 +1226,6 @@ function initPilot() {
 function initGunner() {
     document.title = "Gunner Runner - Gunner";
     tunnelLineSpeed *=-1;
-    var bulletSpeed = 40;
-    var bulletTime = 10;
     var curbulletTime = 0;
     var gunX = 0, gunY = 0;
 
@@ -1276,10 +1292,7 @@ function initGunner() {
 				centerY + player.mouseY/2-2,4,4);
     };
 
-    player.drawShip = function() {
-	player.drawCursor();
 
-    };
 }
 
 function disallowSelecting() {
@@ -1308,4 +1321,25 @@ function resizeCanvas()
     centerY = maincanvas.height/2;
     centerX = maincanvas.width/2;
     maxTunnelRadius = Math.max( maincanvas.height, maincanvas.width);
+}
+function reset() {
+    location.reload(true);
+
+}
+function gameOver() {
+    //clearInterval(updateIntervalId);
+    playSound("blarg");
+    drawingContext.clearRect(0,0,centerX * 2, centerY * 2);
+    var size = Math.min(centerY, centerX/7.125)*1.9;
+    var text = "Game Over";
+    drawingContext.strokeStyle = "#000";
+    drawingContext.fillStyle = "#F00";
+    drawingContext.font =  'bold ' + size +'pt Helvetica,Arial';
+    drawingContext.lineWidth = Math.ceil(size * .1);
+	var metrics = drawingContext.measureText(text);
+    console.log(metrics.width);
+	var startx = centerX - metrics.width/2.0;
+    var starty = centerY + size/2.0;
+	drawingContext.strokeText(text, startx, starty);
+	drawingContext.fillText(text, startx, starty);
 }
