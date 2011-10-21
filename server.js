@@ -7,7 +7,7 @@ var server = http.createServer(function(req, res) {
     paperboy.deliver(path.dirname(__filename), req, res);
     });
 
-server.listen(8080);
+server.listen(80);
 io = io.listen(server);
 
 
@@ -53,7 +53,7 @@ io.sockets.on('connection', function(socket) {
 	    }
 
 	    socket.on('message', function(event) {
-			socket.broadcast.send(event);
+			socket.broadcast.volatile.json.send(event);
 			//console.log('socket message: ' + event);
 		      });
 	    socket.on('disconnect', function(event) {

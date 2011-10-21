@@ -8,8 +8,9 @@ var backgroundMusic = true;
 var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
 //cartoon
-var cartoon = true;
+var cartoon = false;
 var cartoonTunnel = false;
+var barrierAlpha = .7;
 
 //cooldown time for machine gun
 var bulletTime = 10;
@@ -18,7 +19,7 @@ var bulletSpeed = 50;
 
 var numTunnelLines = 7;
 var updateTime = 1000/30;
-var focalDist = 70 + Math.random() * 80;
+var focalDist = 50;// + Math.random() * 80;
 var lightDist = 5000;
 var tunnelLineSpeed = Math.PI/200;
 //how many updates bullets last
@@ -36,8 +37,15 @@ var acceleration = .5, backwardAcceleration = .5;
 var barrierBounce = .65;
 //amount of speed increase through hole
 var barrierBoost = 5;
+//thickness of barrier
+var barrierThickness = 50;
+//max health of barrier
+var barrierHealth = 100;
+
 //how big is the enemies?
 var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
+//how much damage does an enemy do?
+var enemyDamage = 10;
 /*
 //keyboard movement speed
 var keyboardSpeed = .05;
@@ -153,18 +161,19 @@ function isPointInPoly(poly, pt){
 //waiting people aren't playing
 function send(i) {
     if (player.role != 'waiting')
-	socket.send(i);
+	socket.json.send(i);
 }
 
 //barrier class
 function Barrier() {
     //this.circles = circles;
-    this.thickness = 50;
+    this.thickness = barrierThickness;
     this.barrierDist = lightDist;
     this.rotation = 0;
     this.rotationSpeed = Math.PI/50 * (Math.random() - .5) * 2;
     this.barrierBoost = barrierBoost;
     this.holes = [];//this.makeRandomHoles(); //[[.25,0,.75, .5, 1, -.01], [0,0,.25]];
+    this.health = barrierHealth;
 
     this.makeFlowerHoles = function() {
 	var ringRadius = Math.random() * .2+.4;
@@ -208,11 +217,11 @@ function Barrier() {
 	if (Math.random() < .1) {
 	    this.holes.push([0,0,1]);
 	}
-	if (chooser < .4) {
+	if (chooser < .4) {//.4
 	    this.makeRandomHoles();
-	} else if (chooser < .6) {
+	} else if (chooser < .6) {//.6
 	    this.makeFlowerHoles();
-	} else if (chooser < .8) {
+	} else if (chooser < .8) {//.8
 	    this.makeSpacedHoles();
 	} else {
 	    this.holes.push([0,0,1,Math.random()*.3,Math.random(), Math.random()*.1]);
@@ -225,6 +234,13 @@ function Barrier() {
      for (var i =0; i < this.numholes; i++) {
      this.holes.push([maxTunnelRadius/2, 2*Math.PI/(this.numholes) *i]);
      }*/
+
+    this.hurt = function(damage) {
+	this.health -= damage;
+    };
+    this.heal = function(health) {
+	this.health += health;
+    };
 
     this.drawBack = function(cameraX, cameraY) {
 	var backDist = this.barrierDist + this.thickness;
@@ -239,7 +255,7 @@ function Barrier() {
 	drawingContext.beginPath();
 	drawingContext.lineWidth = 1;
 
-	drawingContext.fillStyle = 'rgb(' + [color, color, color].toString() + ')';;
+	drawingContext.fillStyle = 'rgba(' + [color, color, color].toString() + ',' + barrierAlpha + ')';;
 
 	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
 	this.drawHoles(barrierX, barrierY, barrierRadius);
@@ -271,11 +287,11 @@ function Barrier() {
 	    - adjustFor3D(cameraX, this.barrierDist);
 	var barrierY = centerY
 	    - adjustFor3D(cameraY, this.barrierDist);
-	var color = getColorAtDistance(this.barrierDist);
+	var color = getColorAtDistance(this.barrierDist*.75);
 
 	drawingContext.beginPath();
 
-	drawingContext.fillStyle = 'rgb(' + [color, color, color].toString() + ')';
+	drawingContext.fillStyle = 'rgba(' + [color, color, color].toString() + ',' + barrierAlpha +')';
 
 	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
 	this.drawHoles(barrierX, barrierY, barrierRadius);
@@ -296,6 +312,7 @@ function Barrier() {
 	this.updateHoles();
 	this.rotation = (this.rotation + this.rotationSpeed) % (Math.PI * 2);
 	this.barrierDist = this.barrierDist - vel;
+	return (this.health > 0);
     };
 
     this.updateHoles = function() {
@@ -439,6 +456,7 @@ function Enemy(x,y,z,xs,ys,zs) {
     this.velY = ys;
     this.velZ = zs;
     this.health = enemyHealth;
+    this.damage = enemyDamage;
 
     //Enemy draw
     this.draw = function(cameraX, cameraY) {
@@ -487,6 +505,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 		+Math.max(barrier.thickness, this.velZ)) {
 		if (barrier.checkForHit(this.x, this.y)) {
 		    this.velZ *= -1;
+		    barrier.hurt(this.damage);
 		    if (this.velZ > 0) {
 			this.z = barrier.barrierDist +barrier.thickness;
 		    } else {
@@ -556,13 +575,24 @@ function Player(role) {
     };
 
     this.updateBarriers = function() {
+	//if there is not an interesting barrier, let's make one!
+	if (!this.barriers.length || this.barriers[this.barriers.length-1].barrierDist < lightDist - (Math.random() * 2000+ 500)) {
+	    var bar = new Barrier();
+	    bar.makeRandomBarrier();
+	    this.barriers.push(bar);
+	}
+
 	//make sure traverse barriers in correct order
 	//fix bug where two barriers are passed in same time step (large speed)
 	//this way, the barriers are recycled in correct order, keep drawn in
 	//correct order. bug not fixed
 	for (var i = this.barriers.length-1; i >=0; i--) {
 	    var barrier = this.barriers[i];
-	    barrier.update(this.shipVel);
+	    if (!barrier.update(this.shipVel)) {
+		this.barriers.splice(i,1);
+		i = i - 1;
+		continue;
+	    }
 	    var dist = barrier.barrierDist;
 	    if (dist < 0 && dist > -Math.max(barrier.thickness, this.shipVel)){//shipvel into account?
 		if (this.role == 'pilot') {
@@ -612,12 +642,13 @@ function Player(role) {
 
 		    send({barrier:this.barriers[i]});
 		    this.barriers.splice(i,1);
+		   /*
+		    // make a new random barrier
 		    var bar = new Barrier();
 		    bar.makeRandomBarrier();
 		    this.barriers.push(bar);
+		    */
 		}
-
-
 	    }
 	}
     };
@@ -947,6 +978,7 @@ function initMouse() {
     };
 
     maincanvas.onmousedown = function(event) {
+	socket.emit('alert', 'I pressed a button');
 	event.preventDefault();
 	mousePressed = true;
 	leftMouse = (event.button == 0);
@@ -1059,6 +1091,9 @@ function initSocket() {
 		   }
 		   return;
 		   }*/
+		  //evt = JSON.parse(evt);
+		  console.log("evt =");
+		  console.log(evt);
 		  if ('shipX' in evt) {
 		      //drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
 		      if (player.role == 'gunner') {
