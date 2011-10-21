@@ -1025,14 +1025,33 @@ function initAudio() {
 }
 
 function initSocket() {
-    socket = new io.Socket(window.location.hostname, {port: 8080});
-
-    socket.connect();
-
+    // old socket stuff, not up to snuff
+    //socket = new io.Socket(window.location.hostname, {port: 8080});
+    //socket.connect();
+    socket = io.connect();
     socket.on('connect', function(evt) {
 		  console.log(evt);
 	      });
-
+    socket.on('role', function(role) {
+		  player.role = role;
+		  if (player.role == 'pilot') {
+			  initPilot();
+		      } else if (player.role == 'gunner') {
+			  initGunner();
+		      }
+		  console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
+	      });
+    socket.on('gameStart', function() {
+		  if (player.role == 'gunner' || player.role == 'pilot') {
+			  clearInterval(updateIntervalId);
+			  updateIntervalId = setInterval(update, updateTime);
+			  playSound("gogogo");
+		      }
+	      });
+    socket.on('alert', function(display) {
+		  alert(display);
+	      });
+    socket.on('reconnect', reset);
     socket.on('message', function(evt) {
 		  /* if (player.role == 'waiting') {
 		   if ('reconnect' in evt) {
@@ -1040,22 +1059,7 @@ function initSocket() {
 		   }
 		   return;
 		   }*/
-		  if ('role' in evt) {//we got a thing to tell us what role we be
-		      player.role = evt.role;
-		      if (player.role == 'pilot') {
-			  initPilot();
-		      } else if (player.role == 'gunner') {
-			  initGunner();
-		      }
-		      console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
-
-		  } else if ('gameStart' in evt) {
-		      if (player.role == 'gunner' || player.role == 'pilot') {
-			  clearInterval(updateIntervalId);
-			  updateIntervalId = setInterval(update, updateTime);
-			  playSound("gogogo");
-		      }
-		  } else if ('shipX' in evt) {
+		  if ('shipX' in evt) {
 		      //drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
 		      if (player.role == 'gunner') {
 			  player.shipX = -evt.shipX * maxTunnelRadius;
@@ -1111,10 +1115,6 @@ function initSocket() {
 		      player.bounce();
 		  } else if ('background' in evt) {
 		      //maincanvas.style.backgroundColor=evt.background;
-		  } else if ('alert' in evt) {
-		      alert(evt.alert);
-		  } else if ('reconnect' in evt) {
-		      reset();
 		  } else if ('gameOver' in evt) {
 		      gameOver();
 		  }
