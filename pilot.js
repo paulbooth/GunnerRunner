@@ -8,9 +8,9 @@ var backgroundMusic = true;
 var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
 //cartoon
-var cartoon = false;
+var cartoon = true;
 var cartoonTunnel = false;
-var barrierAlpha = .7;
+var barrierAlpha = .5;
 
 //cooldown time for machine gun
 var bulletTime = 10;
@@ -19,20 +19,37 @@ var bulletSpeed = 50;
 
 var numTunnelLines = 7;
 var updateTime = 1000/30;
-var focalDist = 50;// + Math.random() * 80;
+var focalDist = 70;// + Math.random() * 80;
 var lightDist = 5000;
 var tunnelLineSpeed = Math.PI/200;
-//how many updates bullets last
-var bulletLifeTime = 300;
-//how much health enemies have
-var enemyHealth = 100;
-//how much damage a bullet does to enemies
-var bulletDamage = 10;
-//probability of enemy appearance
-var enemyChance = .1;
+
+//for both players
+var playerMaxHealth = 100;
+var playerMaxExp = 100;
+
 //for pilot
 var acceleration = .5, backwardAcceleration = .5;
+var expPerBarrier = 2;
 
+//for gunner
+//how many updates bullets last
+var bulletLifeTime = 300;
+//how much damage a bullet does to enemies
+var bulletDamage = 10;
+var expPerEnemy = 1;
+
+//for enemy
+//how much health enemies have
+var enemyHealth = 100;
+//probability of enemy appearance
+var enemyChance = .1;
+//how big are the enemies?
+//.5 - 1.5 times this size
+var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
+//how much damage does an enemy do?
+var enemyDamage = 20;
+
+//for barrier
 //fraction of speed to move backwards when hit barrier
 var barrierBounce = .65;
 //amount of speed increase through hole
@@ -42,10 +59,6 @@ var barrierThickness = 50;
 //max health of barrier
 var barrierHealth = 100;
 
-//how big is the enemies?
-var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
-//how much damage does an enemy do?
-var enemyDamage = 10;
 /*
 //keyboard movement speed
 var keyboardSpeed = .05;
@@ -74,6 +87,9 @@ var maincanvas;
 var updateIntervalId;
 var centerY;
 var centerX;
+
+var hudHeight, hudWidth;
+var hudAlpha = .5;
 
 var numAudioChannels = 10;
 var audioChannels = new Array(numAudioChannels);
@@ -157,13 +173,42 @@ function isPointInPoly(poly, pt){
     return c;
 }
 
-//send stuff through tubes to other players
-//waiting people aren't playing
+// send stuff through tubes to other players
+// when json necessary
+// waiting people aren't playing
 function send(i) {
     if (player.role != 'waiting')
-	socket.json.send(i);
+	socket.send(JSON.stringify(i));
 }
 
+
+// tell the other player to bounce
+function sendBounce() {
+    if (player.role != 'waiting')
+	socket.emit('bounce');
+}
+
+// tell the other player about a barrier
+// remember to stop updating the barrier after sending it.
+function sendBarrier(barrier) {
+    socket.emit('barrier', barrier);
+}
+
+// tell the other player about an enemy
+// remember to stop updating the enemy after sending it.
+function sendEnemy(enemy) {
+    socket.emit('enemy', enemy);
+}
+
+// tell the other player about a bullet
+// remember to stop updating the bullet after sending it.
+function sendBullet(bullet) {
+    socket.emit('bullet', bullet);
+}
+
+function sendGameOver() {
+    socket.emit('gameOver');
+}
 //barrier class
 function Barrier() {
     //this.circles = circles;
@@ -457,6 +502,7 @@ function Enemy(x,y,z,xs,ys,zs) {
     this.velZ = zs;
     this.health = enemyHealth;
     this.damage = enemyDamage;
+    this.size = enemySize * ( Math.random()+.5);
 
     //Enemy draw
     this.draw = function(cameraX, cameraY) {
@@ -468,7 +514,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	drawCircle(drawingContext,
 		   centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z),
 		   centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z),
-		   adjustFor3D(enemySize * maxTunnelRadius, this.z),
+		   adjustFor3D(this.size * maxTunnelRadius, this.z),
 		   'rgb(' + [0, 0, 0].toString() + ')',
 		   'rgb(' + [color, 255, color].toString() + ')');
 
@@ -484,9 +530,9 @@ function Enemy(x,y,z,xs,ys,zs) {
 	    Math.pow(this.x, 2)
 		+ Math.pow(this.y, 2));
 
-	if ( r > maxTunnelRadius * (1 - enemySize) && this.velX * this.x + this.velY * this.y > 0) {
-	    this.x *= maxTunnelRadius * (1 - enemySize) / r;
-	    this.y *= maxTunnelRadius * (1 - enemySize) / r;
+	if ( r > maxTunnelRadius * (1 - this.size) && this.velX * this.x + this.velY * this.y > 0) {
+	    this.x *= maxTunnelRadius * (1 - this.size) / r;
+	    this.y *= maxTunnelRadius * (1 - this.size) / r;
 	    var reflectX = this.x/r, reflectY = this.y/r;
 	    /*var newVelX = (Math.pow(reflectX,2) - Math.pow(reflectY,2)) * this.velX + 2 * reflectX * reflectY * this.velY,
 	     newVelY = (Math.pow(reflectY,2) - Math.pow(reflectX,2)) * this.velY + 2 * reflectX * reflectY * this.velX;
@@ -523,7 +569,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	return this.z;
     };
     this.checkForHit = function(x, y) {
-	return Math.pow(enemySize * maxTunnelRadius, 2) > Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2);
+	return Math.pow(this.size * maxTunnelRadius, 2) > Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2);
     };
 }// end Enemy function
 
@@ -542,6 +588,8 @@ function Player(role) {
     this.bullets = [];
     this.enemies = [];
     this.shipRadius = .07;
+    this.maxHealth = 200;
+    this.health = this.maxHealth;
 
     //player update
     this.update = function() {
@@ -555,8 +603,9 @@ function Player(role) {
 	this.clear();
 	this.drawTunnel();
 	this.drawTunnelIndicators();
-	this.drawObjects();
 
+	this.drawObjects();
+	this.drawHud();
 	this.drawCursor();
 
 	this.updateRole();
@@ -615,7 +664,7 @@ function Player(role) {
 		} else { //we are gunner
 		    if (this.shipVel > 0
 			&& barrier.checkForHit(this.shipX, this.shipY)) {
-			send({bounce:true});
+			sendBounce();
 		    }
 		}
 
@@ -632,15 +681,15 @@ function Player(role) {
 		 */
 		if (this.role == 'gunner') {
 		    /*if (this.shipVel > 0 && barrier.checkForHit(this.shipX, this.shipY)) {
-		     send({bounce:true});
+		     send({bounce:true});//old
 		     } else {*/
 
-		    send({barrier:this.barriers[i]});
+		    sendBarrier(this.barriers[i]);
 		    this.barriers.splice(i,1);
 		    // }
 		} else if (this.role == 'pilot') {
-
-		    send({barrier:this.barriers[i]});
+		    sendBarrier(this.barriers[i]);
+		    //send({barrier:this.barriers[i]});
 		    this.barriers.splice(i,1);
 		   /*
 		    // make a new random barrier
@@ -662,14 +711,20 @@ function Player(role) {
 		    i--;
 		} else if (enemy.z < 0 && enemy.z > -focalDist ) {
 		    //enemy hit
-		    if (Math.pow((enemy.x - this.shipX),2) + Math.pow((enemy.y - this.shipY),2) < Math.pow( (this.shipRadius + enemySize) * maxTunnelRadius , 2)) {
-			send({gameOver:true});
-			gameOver();
+		    if (Math.pow((enemy.x - this.shipX),2) + Math.pow((enemy.y - this.shipY),2) < Math.pow( (this.shipRadius + enemy.size) * maxTunnelRadius , 2)) {
+			this.health -= enemy.damage;
+			if (this.health < 0) {
+			    //send({gameOver:true});
+			    sendGameOver();
+			    gameOver();
+			    this.health = this.maxHealth;
+			}
 			//alert("Game over!");
 			return false;
 		    }
 		} else if (enemy.z < -focalDist) {
-		    send({enemy:enemy});
+		    //send({enemy:enemy});
+		    sendEnemy(enemy);
 		    this.enemies.splice(i,1);
 		    i--;
 		}
@@ -696,7 +751,8 @@ function Player(role) {
 		    this.bullets.splice(i,1);
 		    i--;
 		} else if (bullet.z < -focalDist) {
-		    send({bullet:bullet});
+		    //send({bullet:bullet});
+		    sendBullet(bullet);
 		    this.bullets.splice(i,1);
 		    i--;
 		}
@@ -785,6 +841,24 @@ function Player(role) {
 	}
     };
 
+    this.drawHud = function() {
+	var life = this.health / this.maxHealth;
+	var lifeColor = Math.round(life * 255);
+	drawingContext.strokeStyle = 'rgba(0,0,0,' + hudAlpha + ')';
+	drawingContext.lineWidth = 3;
+	//life bar outline
+	roundRect(drawingContext, centerX - hudWidth/2, hudHeight/2, hudWidth * .35, hudHeight, hudHeight/4, false, true);
+	//exp bar outline
+	roundRect(drawingContext, centerX - hudWidth * .5, hudHeight/2, hudWidth * .35, hudHeight, hudHeight/4, false, true);
+
+	//life
+	drawingContext.fillStyle = 'rgba(' + (255 - lifeColor) + ',' + (lifeColor) + ',0,' + hudAlpha + ')';
+	roundRect(drawingContext, centerX - hudWidth/2, hudHeight/2, hudWidth * .35 * life, hudHeight, hudHeight/4, true, true);
+
+	//Exp bar
+	drawingContext.fillStyle = 'rgba(0,' + lifeColor + ',0,' + hudAlpha + ')';
+	roundRect(drawingContext, centerX - hudWidth * .1, hudHeight/2, hudWidth * .65, hudHeight, hudHeight/4, true, true);
+    };
     //for pilot. gets overrided for gunner
     this.drawCursor = function() {
 	//drawingContext.fillStyle="rgba(0,255,0,.1)";
@@ -1080,33 +1154,16 @@ function initSocket() {
 			  playSound("gogogo");
 		      }
 	      });
+    socket.on('gameOver', gameOver);
     socket.on('alert', function(display) {
 		  alert(display);
 	      });
     socket.on('reconnect', reset);
-    socket.on('message', function(evt) {
-		  /* if (player.role == 'waiting') {
-		   if ('reconnect' in evt) {
-		   location.reload(true);
-		   }
-		   return;
-		   }*/
-		  //evt = JSON.parse(evt);
-		  console.log("evt =");
-		  console.log(evt);
-		  if ('shipX' in evt) {
-		      //drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
-		      if (player.role == 'gunner') {
-			  player.shipX = -evt.shipX * maxTunnelRadius;
-			  player.shipY = evt.shipY * maxTunnelRadius;
-			  player.shipVel = -evt.shipVel;
-		      } else if (player.role == 'waiting') {
-			  player.shipX = evt.shipX * maxTunnelRadius;
-			  player.shipY = evt.shipY * maxTunnelRadius;
-			  player.shipVel = evt.shipVel;
-		      }
-		  } else if ('barrier' in evt) {
-		      var bar2 = evt.barrier;
+    socket.on('background', function(color) {
+		  maincanvas.style.backgroundColor = color;
+	      });
+    socket.on('bounce', function() {player.bounce();});
+    socket.on('barrier', function(bar2) {
 		      var bar = new Barrier();
 		      bar.barrierDist = -focalDist;
 		      for (var i = 0; i < bar2.holes.length; i++) {
@@ -1138,21 +1195,33 @@ function initSocket() {
 
 
 		      //alert("barrier\n"+evt.barrier.holes);
-		  } else if ('bullet' in evt) {
-		      var bul2 = evt.bullet;
-		      var bul = new Bullet(-bul2.x, bul2.y, -focalDist, bul2.velX, bul2.velY, -bul2.velZ);
+
+	      });
+    socket.on('bullet',function(bul2) {
+	var bul = new Bullet(-bul2.x, bul2.y, -focalDist,
+			     bul2.velX, bul2.velY, -bul2.velZ);
 		      player.bullets.push(bul);
-		  } else if ('enemy' in evt) {
-		      var en2 = evt.enemy;
-		      var en = new Enemy(-en2.x, en2.y, -focalDist, en2.velX, en2.velY, -en2.velZ);
-		      player.enemies.push(en);
-		  } else if ('bounce' in evt) {
-		      player.bounce();
-		  } else if ('background' in evt) {
-		      //maincanvas.style.backgroundColor=evt.background;
-		  } else if ('gameOver' in evt) {
-		      gameOver();
-		  }
+	      });
+    socket.on('enemy', function(en2) {
+		  var en = new Enemy(-en2.x, en2.y, -focalDist, en2.velX, en2.velY, -en2.velZ);
+		  player.enemies.push(en);
+
+	      });
+    socket.on('message', function(evt) {
+		  evt = JSON.parse(evt);
+		  console.log("evt =");
+		  console.log(evt);
+		      //drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
+		      if (player.role == 'gunner') {
+			  player.shipX = -evt.shipX * maxTunnelRadius;
+			  player.shipY = evt.shipY * maxTunnelRadius;
+			  player.shipVel = -evt.shipVel;
+		      } else if (player.role == 'waiting') {
+			  player.shipX = evt.shipX * maxTunnelRadius;
+			  player.shipY = evt.shipY * maxTunnelRadius;
+			  player.shipVel = evt.shipVel;
+		      }
+
 	      });
 
     socket.on('disconnect', function() {
@@ -1229,7 +1298,6 @@ function initPilot() {
 	    }
 	}
 	//console.log(player.mouseX, player.shipX, mouseTrailProp);
-
 	send({shipX: this.shipX/maxTunnelRadius,
 	      shipY: this.shipY/maxTunnelRadius,
 	      shipVel: this.shipVel});
@@ -1302,6 +1370,7 @@ function initGunner() {
 	player.bullets.push(bul);
 	playSound("doo");
     };
+    //overrides for the gunner
     player.drawCursor = function() {
 	var boxSize = 20;
 	var reloadWidth = boxSize/2;
@@ -1355,6 +1424,8 @@ function resizeCanvas()
     $(maincanvas).attr("height", $(window).height());
     centerY = maincanvas.height/2;
     centerX = maincanvas.width/2;
+    hudWidth = maincanvas.width * .8;
+    hudHeight = maincanvas.height * .05;
     maxTunnelRadius = Math.max( maincanvas.height, maincanvas.width);
 }
 function reset() {
@@ -1377,4 +1448,47 @@ function gameOver() {
     var starty = centerY + size/2.0;
 	drawingContext.strokeText(text, startx, starty);
 	drawingContext.fillText(text, startx, starty);
+}
+
+
+
+/**
+ * From StackOverflow:
+ *
+ * Draws a rounded rectangle using the current state of the canvas.
+ * If you omit the last three params, it will draw a rectangle
+ * outline with a 5 pixel border radius
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Number} x The top left x coordinate
+ * @param {Number} y The top left y coordinate
+ * @param {Number} width The width of the rectangle
+ * @param {Number} height The height of the rectangle
+ * @param {Number} radius The corner radius. Defaults to 5;
+ * @param {Boolean} fill Whether to fill the rectangle. Defaults to false.
+ * @param {Boolean} stroke Whether to stroke the rectangle. Defaults to true.
+ */
+function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+  if (typeof stroke == "undefined" ) {
+    stroke = true;
+  }
+  if (typeof radius === "undefined") {
+    radius = 5;
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.lineTo(x + width - radius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+  ctx.lineTo(x + width, y + height - radius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  ctx.lineTo(x + radius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+  ctx.lineTo(x, y + radius);
+  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.closePath();
+  if (stroke) {
+    ctx.stroke();
+  }
+  if (fill) {
+    ctx.fill();
+  }
 }

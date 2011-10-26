@@ -9,7 +9,7 @@ var server = http.createServer(function(req, res) {
 
 server.listen(80);
 io = io.listen(server);
-
+io.set('log level', 1);
 
 var players = 0;
 var pilotTaken = false;
@@ -29,33 +29,47 @@ io.sockets.on('connection', function(socket) {
 		socket.emit('role', 'pilot');
 	      socket.role = 'pilot';
 		pilotSocket = socket;
-		socket.emit('background', "#0F0");
+		//socket.emit('background', "#000");
 	      console.log('PILOT CONNECTED');
 	    } else if (!gunnerTaken) {
 		gunnerTaken = true;
 		socket.emit('role', 'gunner');
-		socket.emit('background', "#0F0");
+		//socket.emit('background', "#0F0");
 		gunnerSocket = socket;
 	      socket.role = 'gunner';
 	      console.log('GUNNER CONNECTED');
 	    } else {
 		socket.emit('role', 'waiting');
 		waiting.push(socket);
-		socket.emit('background', "#F00");
+		//socket.emit('background', "#F00");
 		socket.emit('alert', 'too many players');
 	    }
 
 	    if (pilotTaken && gunnerTaken) {
-		pilotSocket.emit('background', "#FFF");
-		gunnerSocket.emit('background', "#FFF");
+		//pilotSocket.emit('background', "#FFF");
+		//gunnerSocket.emit('background', "#FFF");
 	      pilotSocket.emit('gameStart');
 	      gunnerSocket.emit('gameStart');
 	    }
 
-	    socket.on('message', function(event) {
-			socket.broadcast.volatile.json.send(event);
-			//console.log('socket message: ' + event);
-		      });
+		  socket.on('message', function(event) {
+			  socket.broadcast.volatile.send(event);
+		  });
+		  socket.on('bounce', function() {
+				socket.broadcast.emit('bounce');
+			    });
+		  socket.on('barrier', function(barrier) {
+				socket.broadcast.emit('barrier', barrier);
+			    });
+		  socket.on('bullet', function(bullet) {
+				socket.broadcast.volatile.emit('bullet', bullet);
+			    });
+		  socket.on('enemy', function(enemy) {
+				socket.broadcast.emit('enemy', enemy);
+			    });
+		  socket.on('gameOver', function() {
+				socket.broadcast.emit('gameOver');
+			    });
 	    socket.on('disconnect', function(event) {
 			console.log('our ' + socket.role + " disconnected :'-(");
 			if (socket.role === 'pilot') {
@@ -74,7 +88,7 @@ io.sockets.on('connection', function(socket) {
 			if (socket.role == 'pilot'
 			    || socket.role == 'gunner') {
 			    if (waiting.length == 0) {
-				socket.broadcast.emit('background', "#0F0");
+				//socket.broadcast.emit('background', "#0F0");
 			    } else {
 				waiting[0].emit('reconnect', socket.role);
 				waiting.splice(0,1);
