@@ -42,7 +42,7 @@ var expPerEnemy = 1;
 //how much health enemies have
 var enemyHealth = 100;
 //probability of enemy appearance
-var enemyChance = .1;
+var enemyChance = .05;
 //how big are the enemies?
 //.5 - 1.5 times this size
 var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
@@ -542,7 +542,8 @@ function Enemy(x,y,z,xs,ys,zs) {
 	    var newVelY = this.velY - 2 * (this.velX * reflectX+ this.velY * reflectY) * reflectY;
 	    this.velX = newVelX;
 	    this.velY = newVelY;
-	    playSound("bigsh", adjustFor3D(1,this.z));
+	    //if (this.z < lightDist / 25)
+	    playSound("csh", adjustFor3D(1,this.z));
 	}
 	for (var i = 0; i < player.barriers.length; i++) {
 	    var barrier = player.barriers[i];
@@ -650,17 +651,19 @@ function Player(role) {
 			//WE hit it
 			this.bounce();
 
-		    } else {
+		    } /*else {
 			if (this.shipVel > 0) {
 
 
-			    this.shipVel += barrier.barrierBoost;
+			   * moved to when send barrier
+			    * this.shipVel += barrier.barrierBoost;
 			    barrier.barrierBoost = 0;
 			    // we used it up
 			    playSound("woom");
 			    //made past! give boost
+
 			}
-		    }
+		    }*/
 		} else { //we are gunner
 		    if (this.shipVel > 0
 			&& barrier.checkForHit(this.shipX, this.shipY)) {
@@ -688,6 +691,11 @@ function Player(role) {
 		    this.barriers.splice(i,1);
 		    // }
 		} else if (this.role == 'pilot') {
+		    if (this.shipVel > 0) {
+			this.shipVel += barrier.barrierBoost;
+			barrier.barrierBoost = 0;
+			playSound("woom");
+		    }
 		    sendBarrier(this.barriers[i]);
 		    //send({barrier:this.barriers[i]});
 		    this.barriers.splice(i,1);
@@ -1062,6 +1070,15 @@ function initMouse() {
 	event.preventDefault();
 	mousePressed = false;
     };
+    document.onkeydown = function(e) {
+	var unicode=e.keyCode? e.keyCode : e.charCode;
+	switch (unicode) {
+	case 77: //m
+	    soundEffects = !soundEffects;
+	    backgroundMusic = soundEffects;
+	    break;
+	}
+    };
     /*
     document.onkeydown =
 	function(e) {
@@ -1209,8 +1226,8 @@ function initSocket() {
 	      });
     socket.on('message', function(evt) {
 		  evt = JSON.parse(evt);
-		  console.log("evt =");
-		  console.log(evt);
+		  //console.log("evt =");
+		  //console.log(evt);
 		      //drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
 		      if (player.role == 'gunner') {
 			  player.shipX = -evt.shipX * maxTunnelRadius;
@@ -1313,7 +1330,7 @@ function initPilot() {
 	}
 	if (backgroundMusic) {
 	    if (player.shipVel > 0)
-		backgroundMusicChannel.volume = Math.min(player.shipVel/2, clippingSpeed)/clippingSpeed;
+		backgroundMusicChannel.volume = Math.min(player.shipVel/2, clippingSpeed)/clippingSpeed + .1;
 	    else
 		backgroundMusicChannel.volume = 0;
 	}
@@ -1359,13 +1376,15 @@ function initGunner() {
 
     function shootBullet() {
 	//console.log("shoot: x:"+player.mouseX+" y:"+player.mouseY);
-	var bulletScale = bulletSpeed/Math.sqrt( Math.pow(gunX,2) + Math.pow(gunY,2) + Math.pow(focalDist, 2));
+	var bulletSpawnDepth = focalDist;
+	var bulletScale = bulletSpeed/Math.sqrt( Math.pow(gunX,2) + Math.pow(gunY,2) + Math.pow(bulletSpawnDepth, 2));
+
 	bul = new Bullet(player.shipX,
 			 player.shipY,
-			 -focalDist,
+			 -bulletSpawnDepth,
 			 gunX * bulletScale,
 			 gunY * bulletScale,
-			 focalDist * bulletScale + player.shipVel);
+			 bulletSpawnDepth * bulletScale + player.shipVel);
 	//console.log([player.mouseX, player.mouseY]);
 	player.bullets.push(bul);
 	playSound("doo");
