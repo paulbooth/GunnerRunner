@@ -589,9 +589,16 @@ function Player(role) {
     this.bullets = [];
     this.enemies = [];
     this.shipRadius = .07;
-    this.maxHealth = 200;
-    this.health = this.maxHealth;
+    this.health = playerMaxHealth;
+    this.exp = 0;
 
+    this.hurt = function(amount) {
+	this.health -= amount;
+	playSound("ahhh");
+    };
+    this.heal = function(amount) {
+	this.health += amount;
+    };
     //player update
     this.update = function() {
 
@@ -720,12 +727,12 @@ function Player(role) {
 		} else if (enemy.z < 0 && enemy.z > -focalDist ) {
 		    //enemy hit
 		    if (Math.pow((enemy.x - this.shipX),2) + Math.pow((enemy.y - this.shipY),2) < Math.pow( (this.shipRadius + enemy.size) * maxTunnelRadius , 2)) {
-			this.health -= enemy.damage;
-			if (this.health < 0) {
+			this.hurt(enemy.damage);
+			if (this.health <= 0) {
 			    //send({gameOver:true});
 			    sendGameOver();
 			    gameOver();
-			    this.health = this.maxHealth;
+			    this.health = playerMaxHealth;
 			}
 			//alert("Game over!");
 			return false;
@@ -1453,7 +1460,7 @@ function reset() {
 }
 function gameOver() {
     //clearInterval(updateIntervalId);
-    playSound("blarg");
+    playSound("oh_no");
     drawingContext.clearRect(0,0,centerX * 2, centerY * 2);
     var size = Math.min(centerY, centerX/7.125)*1.9;
     var text = "Game Over";
