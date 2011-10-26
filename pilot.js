@@ -42,7 +42,7 @@ var expPerEnemy = 1;
 //how much health enemies have
 var enemyHealth = 100;
 //probability of enemy appearance
-var enemyChance = .05;
+var enemyChance = .08;
 //how big are the enemies?
 //.5 - 1.5 times this size
 var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
@@ -606,18 +606,23 @@ function Player(role) {
 	this.updateBarriers();
 	if (this.updateEnemies()){
 
-	this.updateBullets();
+	    this.updateBullets();
 
-	this.clear();
-	this.drawTunnel();
-	this.drawTunnelIndicators();
+	    this.clear();
+	    this.drawTunnel();
+	    this.drawTunnelIndicators();
 
-	this.drawObjects();
-	this.drawHud();
-	this.drawCursor();
+	    this.drawObjects();
+	    this.drawHud();
+	    this.drawCursor();
 
-	this.updateRole();
+	    this.updateRole();
+
+	    //healing player shield health
+	    if (this.health < playerMaxHealth) {
+		this.health += .1;
 	    }
+	}
     };
 
     this.updateTunnel = function() {
@@ -734,7 +739,6 @@ function Player(role) {
 			    gameOver();
 			    this.health = playerMaxHealth;
 			}
-			//alert("Game over!");
 			return false;
 		    }
 		} else if (enemy.z < -focalDist) {
@@ -745,6 +749,7 @@ function Player(role) {
 		}
 	    } else {
 		//our enemy has died!
+
 		this.enemies.splice(i,1);
 		i--;
 		//alert("die!");
@@ -857,7 +862,7 @@ function Player(role) {
     };
 
     this.drawHud = function() {
-	var life = this.health / this.maxHealth;
+	var life = this.health / playerMaxHealth;
 	var lifeColor = Math.round(life * 255);
 	drawingContext.strokeStyle = 'rgba(0,0,0,' + hudAlpha + ')';
 	drawingContext.lineWidth = 3;
@@ -1469,7 +1474,7 @@ function gameOver() {
     drawingContext.font =  'bold ' + size +'pt Helvetica,Arial';
     drawingContext.lineWidth = Math.ceil(size * .1);
 	var metrics = drawingContext.measureText(text);
-    console.log(metrics.width);
+//    console.log(metrics.width);
 	var startx = centerX - metrics.width/2.0;
     var starty = centerY + size/2.0;
 	drawingContext.strokeText(text, startx, starty);
