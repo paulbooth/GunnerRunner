@@ -11,7 +11,7 @@ var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poe
 //aesthetics graphics
 var cartoon = true;
 var cartoonTunnel = false;
-var barrierAlpha = .5;
+var barrierAlpha = .6;
 var numTunnelLines = 7;
 var tunnelLineSpeed = Math.PI/200;
 
@@ -53,7 +53,7 @@ var enemyDamage = 20;
 
 //for barrier
 //fraction of speed to move backwards when hit barrier
-var barrierBounce = .65;
+var barrierBounce = .35;
 //amount of speed increase through hole
 var barrierBoost = 5;
 //thickness of barrier
@@ -62,7 +62,7 @@ var barrierThickness = 50;
 var barrierHealth = 100;
 // how spread out the barriers are (.5 - 1.5 of this value.)
 // TODO: make a barrierSpreadVariation to not be limited to .5-1.5 of this value
-var barrierSpread = 1000;
+var barrierSpread = 2000;
 // keeps track of the minimum spawn distance
 // (the last barrier has to be closer to the player than this value
 //  for a new barrier to spawn.)
@@ -227,6 +227,7 @@ function sendHeal(amount) {
 // tell the other player to just accept what this health is
 function sendHealth() {
     socket.emit('health', player.health);
+    console.log(player.health);
 }
 
 // tell the other player to feel the pain
@@ -569,7 +570,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	    this.velX = newVelX;
 	    this.velY = newVelY;
 	    //if (this.z < lightDist / 25)
-	    playSound("csh", adjustFor3D(1,this.z));
+	    playSound("cmeow", adjustFor3D(2,this.z));
 	}
 	for (var i = 0; i < player.barriers.length; i++) {
 	    var barrier = player.barriers[i];
@@ -623,7 +624,13 @@ function Player(role) {
 	playSound("ahhh");
 	if (this.role == 'pilot') {
 	    this.health -= amount;
-	    if (this.health < 0) this.health = 0;
+	    //if (this.health < 0) this.health = 0;
+	    if (this.health <= 0) {
+			    //send({gameOver:true});
+			    sendGameOver();
+			    gameOver();
+			    this.health = playerMaxHealth;
+	    }
 	    sendHealth();
 	} else if (this.role == 'gunner') {
 	    sendHurt(amount);
@@ -752,6 +759,8 @@ function Player(role) {
 		    if (this.shipVel > 0) {
 			this.shipVel += barrier.barrierBoost;
 			barrier.barrierBoost = 0;
+			//difficulty up
+			barrierSpread-=15;
 			playSound("woom");
 		    }
 		    sendBarrier(this.barriers[i]);
@@ -781,13 +790,7 @@ function Player(role) {
 			this.hurt(enemy.damage);
 			this.enemies.splice(i,1);
 			i--;
-			if (this.health <= 0) {
-			    //send({gameOver:true});
-			    sendGameOver();
-			    gameOver();
-			    this.health = playerMaxHealth;
-			    sendHealth();
-			}
+
 			return false;
 		    }
 		} else if (enemy.z < -focalDist) {
@@ -1293,10 +1296,11 @@ function initSocket() {
     socket.on('gameOver', gameOver);
 
     socket.on('heal', function(amount) {
-		  player.health += amount;
+		  player.heal(amount);
+		  /*player.health += amount;
 		  if (player.health > playerMaxHealth) {
 		      player.health = playerMaxHealth;
-		  }
+		  }*/
 	      });
 
     socket.on('health', function(amount) {
@@ -1304,10 +1308,11 @@ function initSocket() {
 	      });
 
     socket.on('hurt', function(amount) {
-		  player.health -= amount;
+		  player.hurt(amount);
+		  /*player.health -= amount;
 		  if (player.health < 0) {
 		      player.health = 0;
-		  }
+		  }*/
 	      });
 
     socket.on('message', function(evt) {
@@ -1460,12 +1465,15 @@ function initGunner() {
 		curbulletTime = 0;
 	    }
 	}
+	// enemy spawn
 	if (Math.random() < enemyChance) {
+	    // random (r, angle) polar position
 	    var r = Math.random() * (maxTunnelRadius - .5 * maxTunnelRadius);
 	    var angle = Math.random() * 2 * Math.PI;
+
+	    // random enemy
 	    var enemy = new Enemy(r * Math.cos(angle), r * Math.sin(angle),
-				  lightDist, Math.random() * bulletSpeed - bulletSpeed/2, Math.random() * bulletSpeed - bulletSpeed/2, (Math.random() * -bulletSpeed + bulletSpeed/2) + Math.min(player.shipVel,0));
-	    //console.log(bulletSpeed/2);
+				  lightDist, Math.random() * bulletSpeed - bulletSpeed/2, Math.random() * bulletSpeed - bulletSpeed/2, (Math.random() * -bulletSpeed - bulletSpeed/2) + Math.min(player.shipVel,0));
 	    player.enemies.push(enemy);
 	}
     };
