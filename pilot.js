@@ -1464,7 +1464,7 @@ function initGunner() {
 	    var r = Math.random() * (maxTunnelRadius - .5 * maxTunnelRadius);
 	    var angle = Math.random() * 2 * Math.PI;
 	    var enemy = new Enemy(r * Math.cos(angle), r * Math.sin(angle),
-				  lightDist, Math.random() * bulletSpeed - bulletSpeed/2, Math.random() * bulletSpeed - bulletSpeed/2, -bulletSpeed/2 + player.shipVel);
+				  lightDist, Math.random() * bulletSpeed - bulletSpeed/2, Math.random() * bulletSpeed - bulletSpeed/2, (Math.random() * -bulletSpeed + bulletSpeed/2) + Math.min(player.shipVel,0));
 	    //console.log(bulletSpeed/2);
 	    player.enemies.push(enemy);
 	}
