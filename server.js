@@ -70,6 +70,15 @@ io.sockets.on('connection', function(socket) {
 		  socket.on('gameOver', function() {
 				socket.broadcast.emit('gameOver');
 			    });
+		  socket.on('heal', function(amount) {
+				socket.broadcast.emit('heal', amount);
+			    });
+		  socket.on('health', function(health) {
+				socket.broadcast.emit('health', health);
+			    });
+		  socket.on('hurt', function(amount) {
+				socket.broadcast.emit('hurt', amount);
+			    });
 	    socket.on('disconnect', function(event) {
 			console.log('our ' + socket.role + " disconnected :'-(");
 			if (socket.role === 'pilot') {

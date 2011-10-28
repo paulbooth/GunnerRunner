@@ -1,27 +1,24 @@
 var socket;
 var maxTunnelRadius;
 
+//sound
 //play sound effects?
 var soundEffects = true;
 //play background music?
 var backgroundMusic = true;
 var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
-//cartoon
+//aesthetics graphics
 var cartoon = true;
 var cartoonTunnel = false;
 var barrierAlpha = .5;
-
-//cooldown time for machine gun
-var bulletTime = 10;
-//how fast bullets move
-var bulletSpeed = 50;
-
 var numTunnelLines = 7;
+var tunnelLineSpeed = Math.PI/200;
+
+//physics
 var updateTime = 1000/30;
 var focalDist = 70;// + Math.random() * 80;
 var lightDist = 5000;
-var tunnelLineSpeed = Math.PI/200;
 
 //for both players
 var playerMaxHealth = 100;
@@ -36,7 +33,12 @@ var expPerBarrier = 2;
 var bulletLifeTime = 300;
 //how much damage a bullet does to enemies
 var bulletDamage = 10;
+// how much experience per enemy taken down
 var expPerEnemy = 1;
+//cooldown time for machine gun
+var bulletTime = 10;
+//how fast bullets move
+var bulletSpeed = 50;
 
 //for enemy
 //how much health enemies have
@@ -58,6 +60,13 @@ var barrierBoost = 5;
 var barrierThickness = 50;
 //max health of barrier
 var barrierHealth = 100;
+// how spread out the barriers are (.5 - 1.5 of this value.)
+// TODO: make a barrierSpreadVariation to not be limited to .5-1.5 of this value
+var barrierSpread = 1000;
+// keeps track of the minimum spawn distance
+// (the last barrier has to be closer to the player than this value
+//  for a new barrier to spawn.)
+var barrierMinSpawnDist = lightDist - barrierSpread;
 
 /*
 //keyboard movement speed
@@ -209,6 +218,22 @@ function sendBullet(bullet) {
 function sendGameOver() {
     socket.emit('gameOver');
 }
+
+// tell the other player to heal
+function sendHeal(amount) {
+    socket.emit('heal', amount);
+}
+
+// tell the other player to just accept what this health is
+function sendHealth() {
+    socket.emit('health', player.health);
+}
+
+// tell the other player to feel the pain
+function sendHurt(amount) {
+    socket.emit('hurt', amount);
+}
+
 //barrier class
 function Barrier() {
     //this.circles = circles;
@@ -279,10 +304,11 @@ function Barrier() {
      for (var i =0; i < this.numholes; i++) {
      this.holes.push([maxTunnelRadius/2, 2*Math.PI/(this.numholes) *i]);
      }*/
-
+    // barrier hurt
     this.hurt = function(damage) {
 	this.health -= damage;
     };
+    //barrier heal
     this.heal = function(health) {
 	this.health += health;
     };
@@ -592,12 +618,28 @@ function Player(role) {
     this.health = playerMaxHealth;
     this.exp = 0;
 
+    //player hurt
     this.hurt = function(amount) {
-	this.health -= amount;
 	playSound("ahhh");
+	if (this.role == 'pilot') {
+	    this.health -= amount;
+	    if (this.health < 0) this.health = 0;
+	    sendHealth();
+	} else if (this.role == 'gunner') {
+	    sendHurt(amount);
+	}
     };
+    //player heal
     this.heal = function(amount) {
-	this.health += amount;
+	if (this.role == 'pilot') {
+	    this.health += amount;
+	    if (this.health > playerMaxHealth) {
+		this.health = playerMaxHealth;
+	    }
+	    sendHealth();
+	} else if (this.role == 'gunner') {
+	    sendHeal(amount);
+	}
     };
     //player update
     this.update = function() {
@@ -619,9 +661,10 @@ function Player(role) {
 	    this.updateRole();
 
 	    //healing player shield health
-	    if (this.health < playerMaxHealth) {
+	    /*if (this.health < playerMaxHealth) {
 		this.health += .1;
-	    }
+	    }*/
+	    //maxTunnelRadius += (-.5 + Math.random()) * 10;
 	}
     };
 
@@ -638,10 +681,11 @@ function Player(role) {
 
     this.updateBarriers = function() {
 	//if there is not an interesting barrier, let's make one!
-	if (!this.barriers.length || this.barriers[this.barriers.length-1].barrierDist < lightDist - (Math.random() * 2000+ 500)) {
+	if (this.role == 'pilot' && (!this.barriers.length || this.barriers[this.barriers.length-1].barrierDist < barrierMinSpawnDist)) {
 	    var bar = new Barrier();
 	    bar.makeRandomBarrier();
 	    this.barriers.push(bar);
+	    barrierMinSpawnDist = lightDist - (Math.random() + .5) * barrierSpread;
 	}
 
 	//make sure traverse barriers in correct order
@@ -686,7 +730,9 @@ function Player(role) {
 	    } else if (dist > lightDist) {
 		//We are too far away. Who cares about it?
 		//delete barrier
-		this.barriers.splice(i,1);
+		if (this.role == 'gunner') {
+		    this.barriers.splice(i,1);
+		}
 	    } else if (dist <= -focalDist) {
 		//TODO: send it to the other player's domain
 		/*	this.barriers[i].barrierDist = lightDist;
@@ -733,11 +779,14 @@ function Player(role) {
 		    //enemy hit
 		    if (Math.pow((enemy.x - this.shipX),2) + Math.pow((enemy.y - this.shipY),2) < Math.pow( (this.shipRadius + enemy.size) * maxTunnelRadius , 2)) {
 			this.hurt(enemy.damage);
+			this.enemies.splice(i,1);
+			i--;
 			if (this.health <= 0) {
 			    //send({gameOver:true});
 			    sendGameOver();
 			    gameOver();
 			    this.health = playerMaxHealth;
+			    sendHealth();
 			}
 			return false;
 		    }
@@ -873,7 +922,10 @@ function Player(role) {
 
 	//life
 	drawingContext.fillStyle = 'rgba(' + (255 - lifeColor) + ',' + (lifeColor) + ',0,' + hudAlpha + ')';
-	roundRect(drawingContext, centerX - hudWidth/2, hudHeight/2, hudWidth * .35 * life, hudHeight, hudHeight/4, true, true);
+	roundRect(drawingContext,
+		  centerX - hudWidth/2, hudHeight/2,
+		  hudWidth * .35 * life, hudHeight,
+		  Math.min(hudHeight/4, hudWidth * .175 * life), true, true);
 
 	//Exp bar
 	drawingContext.fillStyle = 'rgba(0,' + lifeColor + ',0,' + hudAlpha + ')';
@@ -1164,34 +1216,15 @@ function initSocket() {
     //socket = new io.Socket(window.location.hostname, {port: 8080});
     //socket.connect();
     socket = io.connect();
-    socket.on('connect', function(evt) {
-		  console.log(evt);
-	      });
-    socket.on('role', function(role) {
-		  player.role = role;
-		  if (player.role == 'pilot') {
-			  initPilot();
-		      } else if (player.role == 'gunner') {
-			  initGunner();
-		      }
-		  console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
-	      });
-    socket.on('gameStart', function() {
-		  if (player.role == 'gunner' || player.role == 'pilot') {
-			  clearInterval(updateIntervalId);
-			  updateIntervalId = setInterval(update, updateTime);
-			  playSound("gogogo");
-		      }
-	      });
-    socket.on('gameOver', gameOver);
+
     socket.on('alert', function(display) {
 		  alert(display);
 	      });
-    socket.on('reconnect', reset);
+
     socket.on('background', function(color) {
 		  maincanvas.style.backgroundColor = color;
 	      });
-    socket.on('bounce', function() {player.bounce();});
+
     socket.on('barrier', function(bar2) {
 		      var bar = new Barrier();
 		      bar.barrierDist = -focalDist;
@@ -1226,16 +1259,57 @@ function initSocket() {
 		      //alert("barrier\n"+evt.barrier.holes);
 
 	      });
+
+    socket.on('bounce', function() {player.bounce();});
+
     socket.on('bullet',function(bul2) {
 	var bul = new Bullet(-bul2.x, bul2.y, -focalDist,
 			     bul2.velX, bul2.velY, -bul2.velZ);
 		      player.bullets.push(bul);
 	      });
+
+    socket.on('connect', function(evt) {
+		  console.log(evt);
+	      });
+
+    socket.on('disconnect', function() {
+		  console.log('client disconnect');
+	      });
+
     socket.on('enemy', function(en2) {
 		  var en = new Enemy(-en2.x, en2.y, -focalDist, en2.velX, en2.velY, -en2.velZ);
 		  player.enemies.push(en);
 
 	      });
+
+    socket.on('gameStart', function() {
+		  if (player.role == 'gunner' || player.role == 'pilot') {
+			  clearInterval(updateIntervalId);
+			  updateIntervalId = setInterval(update, updateTime);
+			  playSound("gogogo");
+		      }
+	      });
+
+    socket.on('gameOver', gameOver);
+
+    socket.on('heal', function(amount) {
+		  player.health += amount;
+		  if (player.health > playerMaxHealth) {
+		      player.health = playerMaxHealth;
+		  }
+	      });
+
+    socket.on('health', function(amount) {
+		  player.health = amount;
+	      });
+
+    socket.on('hurt', function(amount) {
+		  player.health -= amount;
+		  if (player.health < 0) {
+		      player.health = 0;
+		  }
+	      });
+
     socket.on('message', function(evt) {
 		  evt = JSON.parse(evt);
 		  //console.log("evt =");
@@ -1253,9 +1327,17 @@ function initSocket() {
 
 	      });
 
-    socket.on('disconnect', function() {
-		  console.log('client disconnect');
-	      });
+    socket.on('reconnect', reset);
+
+    socket.on('role', function(role) {
+	    player.role = role;
+	    if (player.role == 'pilot') {
+		initPilot();
+	    } else if (player.role == 'gunner') {
+		initGunner();
+	    }
+	    console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
+	});
 }
 
 function initPilot() {
@@ -1272,13 +1354,14 @@ function initPilot() {
      bar.barrierDist = lightDist;
      bar.holes = [[0,0,.5,1,0]];
      player.barriers.push(bar);*/
-    for (var i = 1000; i < lightDist; i+= 1000) {
+    for (var i = barrierSpread; i < lightDist; i+= barrierSpread) {
 
 	var bar = new Barrier();
 	bar.makeRandomBarrier();
 	bar.barrierDist = i;
 	//bar.holes = [[0,0,.5,1,0]];
 	player.barriers.push(bar);
+	console.log(bar.barrierDist);
     }
 
     //pilot update
@@ -1380,7 +1463,8 @@ function initGunner() {
 	if (Math.random() < enemyChance) {
 	    var r = Math.random() * (maxTunnelRadius - .5 * maxTunnelRadius);
 	    var angle = Math.random() * 2 * Math.PI;
-	    var enemy = new Enemy(r * Math.cos(angle), r * Math.sin(angle), lightDist, Math.random() * bulletSpeed - bulletSpeed/2, Math.random() * bulletSpeed - bulletSpeed/2, -bulletSpeed/2 + player.shipVel);
+	    var enemy = new Enemy(r * Math.cos(angle), r * Math.sin(angle),
+				  lightDist, Math.random() * bulletSpeed - bulletSpeed/2, Math.random() * bulletSpeed - bulletSpeed/2, -bulletSpeed/2 + player.shipVel);
 	    //console.log(bulletSpeed/2);
 	    player.enemies.push(enemy);
 	}
