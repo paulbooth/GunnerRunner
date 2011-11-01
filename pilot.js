@@ -248,7 +248,7 @@ function Barrier() {
 
     this.makeFlowerHoles = function() {
 	var ringRadius = Math.random() * .2+.4;
-	var holeRadius = Math.random() * (.99 - ringRadius) + .1;
+	var holeRadius = Math.random() * ((.89-player.shipRadius) - ringRadius) + .1;
 	var numHoles = Math.floor(Math.random() * 10) + 2;
 	var angleInc = Math.PI * 2 / numHoles,
 	angle = Math.random() * angleInc;
@@ -283,13 +283,25 @@ function Barrier() {
 	}
     };
 
+    this.makeSpottedHoles = function () {
+	var numHoles = Math.floor(Math.random()*50) + 10;
+	for (var i = 0; i < numHoles; i++) {
+	    var posradius = Math.random()*.9;
+	    var angle = Math.random() * 2 * Math.PI;
+	    var holeradius = Math.random() * (.1)+.1;
+	    var hole = [posradius, angle, holeradius];
+	    this.holes.push(hole);
+	}
+    };
+
     this.makeRandomBarrier = function () {
 	var chooser = Math.random();
-	if (Math.random() < .1) {
+	if (Math.random() < .2) {
 	    this.holes.push([0,0,1]);
 	}
-	if (chooser < .4) {//.4
-	    this.makeRandomHoles();
+	if (chooser < 1) {//.4
+	    //this.makeRandomHoles();
+	    this.makeSpottedHoles();
 	} else if (chooser < .6) {//.6
 	    this.makeFlowerHoles();
 	} else if (chooser < .8) {//.8
@@ -484,12 +496,15 @@ function Bullet(x,y,z,xs,ys,zs) {
 	    playSound("bigsh", adjustFor3D(1,this.z));
 	}
 
+	// bullet enemy
+	// enemy bullet
 	for (var i = 0; i < player.enemies.length; i++) {
 	    var enemy = player.enemies[i];
 	    if (this.z >= enemy.z
 	       && this.z < enemy.z + Math.abs(this.z)
 		&& (enemy.checkForHit(this.x,this.y))) {
 		player.enemies.splice(i,1);
+		//enemy.damage()
 		return false;//this dies too!
 	    }
 	}
@@ -572,6 +587,8 @@ function Enemy(x,y,z,xs,ys,zs) {
 	    //if (this.z < lightDist / 25)
 	    playSound("cmeow", adjustFor3D(2,this.z));
 	}
+	// enemy barrier
+	// barrier enemy
 	for (var i = 0; i < player.barriers.length; i++) {
 	    var barrier = player.barriers[i];
 	    if (this.z >= barrier.barrierDist
@@ -585,7 +602,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 		    } else {
 			this.z = barrier.barrierDist;
 		    }
-		    playSound("lilpow", adjustFor3D(1,this.z));
+		    playSound("cmeow", adjustFor3D(1,this.z));
 		}
 
 		break;
@@ -801,7 +818,6 @@ function Player(role) {
 		}
 	    } else {
 		//our enemy has died!
-
 		this.enemies.splice(i,1);
 		i--;
 		//alert("die!");
