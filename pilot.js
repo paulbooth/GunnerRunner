@@ -19,7 +19,7 @@ var tunnelLineSpeed = Math.PI/200;
 
 //physics
 var updateTime = 1000/30;
-var focalDist = 70;// + Math.random() * 80;
+var focalDist = 50;// + Math.random() * 80;
 var lightDist = 5000;
 
 //for both players
@@ -37,6 +37,8 @@ var expPerBarrier = 10;
 var expPerEnemy = 2.5;
 // cooldown time for machine gun
 var bulletTime = 10;
+// how fast the mouse moves the cursor
+var gunMouseTrailProp = .15;
 
 // for bullets
 // how many updates bullets last
@@ -44,9 +46,9 @@ var bulletLifeTime = 300;
 // how much damage a bullet does to enemies
 var bulletDamage = 10;
 //how fast bullets move
-var bulletSpeed = 40;
+var bulletSpeed = 100;
 //how big the bullets are
-var bulletRadius = .05;
+var bulletRadius = .02;
 
 //for enemy
 //how much health enemies have
@@ -571,11 +573,15 @@ function Enemy(x,y,z,xs,ys,zs) {
     this.health = enemyHealth;
     this.damage = enemyDamage;
     this.size = enemySize * ( Math.random()+.5);
+    this.damaged = 0;
 
+    // enemy hurt
     this.hurt = function (amount) {
 	this.health -= amount;
+	this.damaged = 1;
     }
 
+    // enemy heal
     this.heal = function (amount) {
 	this.health += amount;
     }
@@ -584,19 +590,31 @@ function Enemy(x,y,z,xs,ys,zs) {
     this.draw = function(cameraX, cameraY) {
 //	drawingContext.lineWidth = 1;
 	//drawingContext.fillRect(0,0,40,40);
-	var color = getColorAtDistance(this.z/(cartoonEnemies?2:10));
+	var colorValue = getColorAtDistance(this.z/(cartoonEnemies?2:10));
+	if (this.damaged > 0) {
+	    var color = 'rgb(' + 
+		[Math.round(colorValue * (1 - this.damaged)), 
+		 Math.round(255 * (1 - this.damaged)), 
+		 Math.round(colorValue * (1 - this.damaged))].toString() + ')'
+	} else {
+	    
+	    var color = 'rgb(' + [colorValue, 255, colorValue].toString() + ')'
+	}
 	//console.log(""+this.x/maxTunnelRadius+","+this.y/maxTunnelRadius+","+this.z);
-	drawingContext.lineWidth = adjustFor3D(50,this.z);
+	if (cartoonEnemies) {
+	    drawingContext.lineWidth = adjustFor3D(50,this.z);
+	}
 	drawCircle(drawingContext,
 		   centerX - adjustFor3D(cameraX, this.z) + adjustFor3D(this.x, this.z),
 		   centerY - adjustFor3D(cameraY, this.z) + adjustFor3D(this.y,this.z),
 		   adjustFor3D(this.size * maxTunnelRadius, this.z),
 		   cartoonEnemies? 'rgb(' + [0, 0, 0].toString() + ')': null,
-		   'rgb(' + [color, 255, color].toString() + ')');
+		   color);
 
     };
     //Enemy update
     this.update = function() {
+	if (this.damaged > 0) {this.damaged -= .1; }
 	this.velX += (Math.random() - .5) * 5;
 	this.velY += (Math.random() - .5) * 5;
 	this.x += this.velX;
@@ -736,6 +754,9 @@ function Player(role) {
 		backwardAcceleration += Math.random() * .03;
 	    }
 	} else if (player.role == 'gunner') {
+	    if (gunMouseTrailProp < .9) {
+		gunMouseTrailProp += Math.random() * .1;
+	    }
 	    if (enemyChance < 1) {
 		enemyChance += Math.random() * .002;
 	    }
@@ -1596,7 +1617,7 @@ function initGunner() {
 
     //gunner updaterole
     player.updateRole = function() {
-	var gunMouseTrailProp = .15;
+	
 	gunX = player.mouseX/2 * gunMouseTrailProp +
 	    gunX * (1 - gunMouseTrailProp);
 	gunY = player.mouseY/2 * gunMouseTrailProp +
