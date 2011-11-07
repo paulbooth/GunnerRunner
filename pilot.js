@@ -16,6 +16,7 @@ var cartoonHud = false;
 var barrierAlpha = 1;//.6;
 var numTunnelLines = 7;
 var tunnelLineSpeed = Math.PI/200;
+var drawTime = 1000/60;
 
 // physics
 var updateTime = 1000/30;
@@ -106,6 +107,7 @@ var drawingContext;
 
 var maincanvas;
 var updateIntervalId;
+var drawIntervalId;
 var centerY;
 var centerX;
 
@@ -778,9 +780,13 @@ function Player(role) {
 	}
 	var alpha = 1;
 	player.overlayDrawFunction = function() {
-	    if (alpha > 0) alpha -= .05
+	    if (alpha > 0) {
+		alpha -= .05
+		if (alpha < 0) {
+		    player.overlayDrawFunction = null;
+		}
+	    }
 	    drawText('Level Up!', null, 'rgba(0,255,0,' + alpha + ')', 'rgba(0,0,100,' + alpha + ')');};
-	setTimeout(function(){ player.overlayDrawFunction = null;}, 500);
     }
 
     // player update
@@ -792,7 +798,7 @@ function Player(role) {
 	// all the time?
 	this.updateEnemies();
 	    this.updateBullets();
-	    this.draw();
+	    //this.draw();
 	    this.updateRole();
 
 	    //healing player shield health
@@ -1251,6 +1257,10 @@ function update() {
     //    console.log(player.barriers.length);
 }
 
+function draw() {
+    player.draw();
+}
+
 function init() {
     maincanvas = $('#maincanvas')[0];
     //updateIntervalId;
@@ -1265,6 +1275,7 @@ function init() {
     maincanvas.oncontextmenu = function(){return false;};
     player = new Player();
     updateIntervalId = setInterval(update, updateTime);
+    drawIntervalId = setInterval(draw, drawTime);
     disallowSelecting();
     initAudio();
     initMouse();
@@ -1735,6 +1746,7 @@ function reset() {
 }
 function gameOver() {
     clearInterval(updateIntervalId);
+    clearInterval(drawIntervalId);
     playSound("oh_no");
     drawText( "Game Over");
     setTimeout(reset, 3000);
