@@ -1,113 +1,221 @@
 var http = require('http'),
 io = require('socket.io'),
 path = require('path'),
-paperboy = require('paperboy');
+express = require('express'),
+app = express.createServer();
+//paperboy = require('paperboy');
 
-var server = http.createServer(function(req, res) {
+/*var server = http.createServer(function(req, res) {
     paperboy.deliver(path.dirname(__filename), req, res);
     });
 
-server.listen(80);
-io = io.listen(server);
+server.listen(80);*/
+app.listen(1337);
+app.configure(function(){
+    //app.use(express.methodOverride());
+    //app.use(express.bodyParser());
+    //app.use(app.router);
+    app.use(express.static(__dirname));
+    app.use(express.errorHandler({dumpExceptions: true, showStack: true}));
+});
+app.get('/', function(req, res) {
+    res.sendfile(__dirname + 'index.html');
+});
+
+io = io.listen(app);
 io.set('log level', 1);
 
-var players = 0;
-var pilotTaken = false;
-var gunnerTaken = false;
-var pilotClient = null, gunnerClient = null;
+
+
 var waiting = [];
+var pairs = [];
 io.sockets.on('connection', function(socket) {
-	    getNetworkIP(function (error, ip) {
-			   console.log(ip);
-			   if (error) {
-			     console.log('error:', error);
-			   }
-			 }, false);
-	    // usage example for getNetworkIP below
-	    if (!pilotTaken) {
+    getNetworkIP(function (error, ip) {
+	console.log('ip:' + ip);
+	if (error) {
+	    console.log('error:', error);
+	}
+    }, false);
+    // usage example for getNetworkIP below
+    var pilotTaken = false;
+    var gunnerTaken = false;
+    var pair = getNextAvailablePair();
+    socket.pair = pair;
+    for (var i = 0; i < pair.length; i++) {
+	var otherplayer = pair[i];
+	if (otherplayer != null) {
+	    if (otherplayer.role == 'pilot') {
 		pilotTaken = true;
-		socket.emit('role', 'pilot');
-	      socket.role = 'pilot';
-		pilotSocket = socket;
-		//socket.emit('background', "#000");
-	      console.log('PILOT CONNECTED');
-	    } else if (!gunnerTaken) {
+	    } else if (otherplayer.role == 'gunner') {
 		gunnerTaken = true;
-		socket.emit('role', 'gunner');
-		//socket.emit('background', "#0F0");
-		gunnerSocket = socket;
-	      socket.role = 'gunner';
-	      console.log('GUNNER CONNECTED');
+	    }
+	}
+    }
+    pair.push(socket);
+    if (!pilotTaken) {
+	socket.emit('role', 'pilot');
+	socket.role = 'pilot';
+	//pilotSocket = socket;
+	//socket.emit('background', "#000");
+	console.log('PILOT CONNECTED');
+    } else if (!gunnerTaken) {
+	gunnerTaken = true;
+	socket.emit('role', 'gunner');
+	//socket.emit('background', "#0F0");
+	//gunnerSocket = socket;
+	socket.role = 'gunner';
+	console.log('GUNNER CONNECTED');
+    } else {
+	socket.emit('role', 'waiting');
+	//waiting.push(socket);
+	console.error('A waiter just tried to get served.');
+	socket.emit('background', '#AFA');
+	socket.emit('alert', 'too many players');
+    }
+
+    //if (pilotTaken && gunnerTaken) {
+    if (pair.length == 2) {
+	//pilotSocket.emit('background', "#FFF");
+	//gunnerSocket.emit('background', "#FFF");
+	//pilotSocket.emit('gameStart');
+	//gunnerSocket.emit('gameStart');
+	pair[0].emit('gameStart');
+	pair[1].emit('gameStart');
+	pair[0].gameStart = true;
+	pair[1].gameStart = true;
+	pair[0].otherPlayer = pair[1];
+	pair[1].otherPlayer = pair[0];
+    } else {
+	socket.gameStart = false;
+    }
+
+    socket.on('message', function(event) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.volatile.send(event);
+	}
+    });
+    socket.on('bounce', function() {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('bounce');
+	}
+    });
+    socket.on('barrier', function(barrier) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('barrier', barrier);
+	}
+    });
+    socket.on('bullet', function(bullet) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.volatile.emit('bullet', bullet);
+	}
+    });
+    socket.on('enemy', function(enemy) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('enemy', enemy);
+	}
+    });
+    socket.on('expGain', function(amount) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('expGain', amount);
+	}
+    });
+    socket.on('exp', function(amount) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('exp', amount);
+	}
+    });
+    socket.on('gameOver', function() {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('gameOver');
+	}
+    });
+    socket.on('heal', function(amount) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('heal', amount);
+	}
+    });
+    socket.on('health', function(health) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('health', health);
+	}
+    });
+    socket.on('hurt', function(amount) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('hurt', amount);
+	}
+    });
+   socket.on('levelUp', function(amount) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('levelUp');
+	}
+    });
+
+    socket.on('disconnect', function(event) {
+	console.log('our ' + socket.role + " disconnected :'-(");
+	var index = socket.pair.indexOf(socket);
+	if (index == -1) { console.error('OH MY SWEET GOSH NOOOOO!!!: ' + socket.pair);}
+	pair.splice(index, 1);
+	if (socket.role == 'gunner' || socket.role == 'pilot') {
+	    if (socket.otherPlayer) {
+		socket.otherPlayer.gameStart = false;
+	    }
+	    for (var i = 0; i < pair.length; i++) {
+		var otherSocket = pair[i];
+		if (otherSocket.role == 'waiting') {
+		    otherSocket.emit('reconnect', socket.role);
+		    
+		}
+	    }
+	}
+	//pair.map(function(socket) { });
+	/*if (socket.role === 'pilot') {
+	    pilotTaken = false;
+	    pilotSocket = null;
+	} else if (socket.role === 'gunner') {
+	    gunnerTaken = false;
+	    gunnerSocket = null;
+	} else {
+	    console.log('Our...other guy... disconnected...');
+	    var indx = waiting.indexOf(socket);
+	    if (indx != -1) {
+		waiting.splice(indx, 1);
+	    }
+	}
+	if (socket.role == 'pilot'
+	    || socket.role == 'gunner') {
+	    if (waiting.length == 0) {
+		//socket.broadcast.emit('background', "#0F0");
 	    } else {
-		socket.emit('role', 'waiting');
-		waiting.push(socket);
-		//socket.emit('background', "#F00");
-		socket.emit('alert', 'too many players');
+		waiting[0].emit('reconnect', socket.role);
+		waiting.splice(0,1);
 	    }
+	}*/
+    });
+    /*setInterval(function() {
+      socket.send('message');
+      }, 5000); */
+});
 
-	    if (pilotTaken && gunnerTaken) {
-		//pilotSocket.emit('background', "#FFF");
-		//gunnerSocket.emit('background', "#FFF");
-	      pilotSocket.emit('gameStart');
-	      gunnerSocket.emit('gameStart');
-	    }
-
-		  socket.on('message', function(event) {
-			  socket.broadcast.volatile.send(event);
-		  });
-		  socket.on('bounce', function() {
-				socket.broadcast.emit('bounce');
-			    });
-		  socket.on('barrier', function(barrier) {
-				socket.broadcast.emit('barrier', barrier);
-			    });
-		  socket.on('bullet', function(bullet) {
-				socket.broadcast.volatile.emit('bullet', bullet);
-			    });
-		  socket.on('enemy', function(enemy) {
-				socket.broadcast.emit('enemy', enemy);
-			    });
-		  socket.on('gameOver', function() {
-				socket.broadcast.emit('gameOver');
-			    });
-		  socket.on('heal', function(amount) {
-				socket.broadcast.emit('heal', amount);
-			    });
-		  socket.on('health', function(health) {
-				socket.broadcast.emit('health', health);
-			    });
-		  socket.on('hurt', function(amount) {
-				socket.broadcast.emit('hurt', amount);
-			    });
-	    socket.on('disconnect', function(event) {
-			console.log('our ' + socket.role + " disconnected :'-(");
-			if (socket.role === 'pilot') {
-			  pilotTaken = false;
-			    pilotSocket = null;
-			} else if (socket.role === 'gunner') {
-			  gunnerTaken = false;
-			    gunnerSocket = null;
-			} else {
-			  console.log('Our...other guy... disconnected...');
-			    var indx = waiting.indexOf(socket);
-			    if (indx != -1) {
-				waiting.splice(indx, 1);
-			    }
-			}
-			if (socket.role == 'pilot'
-			    || socket.role == 'gunner') {
-			    if (waiting.length == 0) {
-				//socket.broadcast.emit('background', "#0F0");
-			    } else {
-				waiting[0].emit('reconnect', socket.role);
-				waiting.splice(0,1);
-			    }
-			}
-		      });
-	    /*setInterval(function() {
-	     socket.send('message');
-	     }, 5000); */
-	  });
+function getNextAvailablePair() {
+    for(var i = 0; i<pairs.length; i++) {
+	switch(pairs[i].length) {
+	case 0: 
+	    pairs.splice(i,1);
+	    i--;
+	    break;
+	case 1: 
+	    return pairs[i];
+	case 2:
+	    break;
+	default:
+	    console.error('Why does pair #' + i +' have a length of ' 
+			  + pairs[i].length + '?');
+	}
+    }
+    var newpair = [];
+    pairs.push(newpair);
+    return newpair;
+}
 
 var getNetworkIP = (
     function () {
