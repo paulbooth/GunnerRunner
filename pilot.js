@@ -8,7 +8,7 @@ var soundEffects = true;
 var backgroundMusic = true;
 var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
-//aesthetics graphics
+// aesthetics graphics
 var cartoonBarriers = false;
 var cartoonTunnel = false;
 var cartoonEnemies = false;
@@ -17,9 +17,9 @@ var barrierAlpha = 1;//.6;
 var numTunnelLines = 7;
 var tunnelLineSpeed = Math.PI/200;
 
-//physics
+// physics
 var updateTime = 1000/30;
-var focalDist = 50;// + Math.random() * 80;
+var focalDist = 60;// + Math.random() * 80;
 var lightDist = 5000;
 
 //for both players
@@ -30,7 +30,7 @@ var score = 0;
 
 // for pilot
 var acceleration = .5, backwardAcceleration = .5;
-var expPerBarrier = 10;
+var expPerBarrier = 7.5;
 
 // for gunner
 // how much experience per enemy taken down
@@ -271,6 +271,7 @@ function Barrier() {
     this.barrierBoost = barrierBoost;
     this.holes = [];//this.makeRandomHoles(); //[[.25,0,.75, .5, 1, -.01], [0,0,.25]];
     this.health = barrierHealth;
+    this.damaged = 0;
 
     this.makeFlowerHoles = function() {
 	var ringRadius = Math.random() * .2+.4;
@@ -346,6 +347,7 @@ function Barrier() {
     // barrier hurt
     this.hurt = function(damage) {
 	this.health -= damage;
+	this.damaged = 1;
     };
     //barrier heal
     this.heal = function(health) {
@@ -398,6 +400,9 @@ function Barrier() {
 	var barrierY = centerY
 	    - adjustFor3D(cameraY, this.barrierDist);
 	var color = getColorAtDistance(this.barrierDist*.75);
+	if (this.damaged > 0) {
+	    color = Math.round( color * (1 - this.damaged));
+	}
 
 	drawingContext.beginPath();
 
@@ -419,6 +424,7 @@ function Barrier() {
 
     // Barrier update
     this.update = function(vel) {
+	if (this.damaged > 0) { this.damaged -= .1;}
 	this.updateHoles();
 	this.rotation = (this.rotation + this.rotationSpeed) % (Math.PI * 2);
 	this.barrierDist = this.barrierDist - vel;
@@ -739,8 +745,8 @@ function Player(role) {
 	score += this.exp;
 	this.exp = 0;
 	playerMaxExp += 25; 
-	playerMaxHealth += 5;
-	player.health += 5;
+	playerMaxHealth += 10;
+	player.health += 10;
 	if (enemyDamage < 33) {
 	    enemyDamage += 1;
 	}
@@ -790,12 +796,12 @@ function Player(role) {
 	    this.updateRole();
 
 	    //healing player shield health
-	    if ( (playerRegen != 0 )
+	    /*if ( (playerRegen != 0 )
 		 && (this.role == 'pilot') 
 		 && (this.health < playerMaxHealth)) {
 		this.health += playerRegen;
 		sendHealth();
-	    }
+	    }*/
 	    //maxTunnelRadius += (-.5 + Math.random()) * 10;
 	//}
     };
@@ -853,6 +859,7 @@ function Player(role) {
 		    if (this.shipVel > 0 
 			&& barrier.checkForHit(this.shipX, this.shipY)) {
 			//WE hit it
+			barrier.damaged = 1;
 			this.bounce();
 		    } /*else {
 			if (this.shipVel > 0) {
@@ -868,6 +875,7 @@ function Player(role) {
 		    if (this.shipVel > 0
 			&& barrier.checkForHit(this.shipX, this.shipY)) {
 			sendBounce();
+			barrier.damaged = 1;
 		    }
 		}
 	    } else if (dist > lightDist) {
