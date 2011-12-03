@@ -55,7 +55,7 @@ var bulletRadius = .02;
 //how much health enemies have
 var enemyHealth = 20;
 //probability of enemy appearance
-var enemyChance = .08;
+var enemyChance = .1;
 //how big are the enemies?
 //.5 - 1.5 times this size
 var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
@@ -80,6 +80,8 @@ var barrierSpread = 2000;
 // (the last barrier has to be closer to the player than this value
 //  for a new barrier to spawn.)
 var barrierMinSpawnDist = lightDist - barrierSpread;
+
+var lastUpdateTime = new Date().getTime();
 
 /*
 //keyboard movement speed
@@ -425,20 +427,20 @@ function Barrier() {
     };
 
     // Barrier update
-    this.update = function(vel) {
+    this.update = function(speedFactor) {
 	if (this.damaged > 0) { this.damaged -= .1;}
-	this.updateHoles();
-	this.rotation = (this.rotation + this.rotationSpeed) % (Math.PI * 2);
-	this.barrierDist = this.barrierDist - vel;
+	this.updateHoles(speedFactor);
+	this.rotation = (this.rotation + this.rotationSpeed * speedFactor) % (Math.PI * 2);
+	this.barrierDist = this.barrierDist - player.shipVel * speedFactor;
 	return (this.health > 0);
     };
 
-    this.updateHoles = function() {
+    this.updateHoles = function(speedFactor) {
 	for (var i = 0; i < this.holes.length; i++) {
 	    var hole = this.holes[i];
 	    if (hole.length>5) {
 		//are our holes growing?
-		hole[4] += hole[5];
+		hole[4] += hole[5] * speedFactor;
 		//console.log(hole[3]);
 		if (hole[4] > 1) {
 		    hole[4] = 1;
@@ -503,12 +505,12 @@ function Bullet(x,y,z,xs,ys,zs) {
 		   'rgb(' + [color, color, color].toString() + ')');
     };
     //Bullet update
-    this.update = function() {
+    this.update = function(speedFactor) {
 	this.lifeTime--;
 	if (this.lifeTime <= 0) return false;
-	this.x += this.velX;
-	this.y += this.velY;
-	this.z += this.velZ - player.shipVel;
+	this.x += this.velX * speedFactor;
+	this.y += this.velY * speedFactor;
+	this.z += (this.velZ - player.shipVel) * speedFactor;
 	var r = Math.sqrt(
 	    Math.pow(this.x, 2)
 		+ Math.pow( this.y, 2));
@@ -621,13 +623,19 @@ function Enemy(x,y,z,xs,ys,zs) {
 
     };
     //Enemy update
-    this.update = function() {
+    this.update = function(speedFactor) {
 	if (this.damaged > 0) {this.damaged -= .1; }
-	this.velX += (Math.random() - .5) * 5;
-	this.velY += (Math.random() - .5) * 5;
-	this.x += this.velX;
-	this.y += this.velY;
-	this.z += this.velZ - player.shipVel;
+	this.velX += (Math.random() - .5) * 10;
+	this.velY += (Math.random() - .5) * 10;
+//	if (player.x < this.x) this.velX -=  100;
+//	if (player.x > this.x) this.velX += 100;
+//	if (player.y < this.y) this.velY -= 100;
+//	if (player.y > this.y) this.velY +=  100;
+	this.velX += .01 * (player.shipX - this.x);
+	this.velY += .01 * (player.shipY - this.y);
+	this.x += this.velX * speedFactor;
+	this.y += this.velY * speedFactor;
+	this.z += (this.velZ - player.shipVel) * speedFactor;
 	var r = Math.sqrt(
 	    Math.pow(this.x, 2)
 		+ Math.pow(this.y, 2));
@@ -653,7 +661,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	    var barrier = player.barriers[i];
 	    if (this.z >= barrier.barrierDist
 		&& this.z < barrier.barrierDist
-		+Math.max(barrier.thickness, this.velZ)) {
+		+Math.max(barrier.thickness, this.velZ * speedFactor)) {
 		if (barrier.checkForHit(this.x, this.y)) {
 		    this.velZ *= -1;
 		    barrier.hurt(this.damage);
@@ -670,9 +678,11 @@ function Enemy(x,y,z,xs,ys,zs) {
 	}
 	return true;//still alive
     };
+
     this.getZ = function() {
 	return this.z;
     };
+
     this.checkForHit = function(x, y) {
 	return Math.pow(this.size * maxTunnelRadius, 2) > Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2);
     };
@@ -790,16 +800,16 @@ function Player(role) {
     }
 
     // player update
-    this.update = function() {
-	this.updateTunnel();
-	this.updateBarriers();
+    this.update = function(speedFactor) {
+	this.updateTunnel(speedFactor);
+	this.updateBarriers(speedFactor);
 	//if (this.updateEnemies()){
 	// I'm not sure why this is in the if statement... shouldn't it happen
 	// all the time?
-	this.updateEnemies();
-	    this.updateBullets();
+	this.updateEnemies(speedFactor);
+	    this.updateBullets(speedFactor);
 	    //this.draw();
-	    this.updateRole();
+	    this.updateRole(speedFactor);
 
 	    //healing player shield health
 	    /*if ( (playerRegen != 0 )
@@ -827,10 +837,10 @@ function Player(role) {
 
     };
 
-    this.updateTunnel = function() {
+    this.updateTunnel = function(speedFactor) {
 	//tunnelLineSpeed = 0;//this.shipVel / 50./100;
-	initialLineAngle = (initialLineAngle + tunnelLineSpeed) % (Math.PI*2);
-	this.indicatorOffset = (this.indicatorOffset - this.shipVel);
+	initialLineAngle = (initialLineAngle + tunnelLineSpeed * speedFactor) % (Math.PI*2);
+	this.indicatorOffset = (this.indicatorOffset - this.shipVel * speedFactor);
 	if (this.indicatorOffset < 0) {
 	    this.indicatorOffset += this.indicatorDelta;
 	} else if (this.indicatorOffset > this.indicatorDelta) {
@@ -838,7 +848,7 @@ function Player(role) {
 	}
     };
 
-    this.updateBarriers = function() {
+    this.updateBarriers = function(speedFactor) {
 	//if there is not an interesting barrier, let's make one!
 	if (this.role == 'pilot' && (!this.barriers.length || this.barriers[this.barriers.length-1].barrierDist < barrierMinSpawnDist)) {
 	    var bar = new Barrier();
@@ -853,13 +863,13 @@ function Player(role) {
 	//correct order. bug not fixed
 	for (var i = this.barriers.length-1; i >=0; i--) {
 	    var barrier = this.barriers[i];
-	    if (!barrier.update(this.shipVel)) {
+	    if (!barrier.update( speedFactor)) {
 		this.barriers.splice(i,1);
 		i = i - 1;
 		continue;
 	    }
 	    var dist = barrier.barrierDist;
-	    if (dist < 0 && dist > -Math.max(barrier.thickness, this.shipVel)){//shipvel into account?
+	    if (dist < 0 && dist > -Math.max(barrier.thickness, this.shipVel * speedFactor)){//shipvel into account?
 		if (this.role == 'pilot') {
 
 		    if (this.shipVel > 0 
@@ -929,10 +939,10 @@ function Player(role) {
 	}
     };
 
-    this.updateEnemies = function() {
+    this.updateEnemies = function(speedFactor) {
 	for (var i = 0; i < this.enemies.length; i++) {
 	    var enemy = this.enemies[i];
-	    if (enemy.update()) {
+	    if (enemy.update(speedFactor)) {
 		if (enemy.z > lightDist*1.2) {
 		    this.enemies.splice(i,1);
 		    i--;
@@ -961,10 +971,10 @@ function Player(role) {
 	return true;
     };
 
-    this.updateBullets = function() {
+    this.updateBullets = function(speedFactor) {
 	for (var i = 0; i < this.bullets.length; i++) {
 	    var bullet = this.bullets[i];
-	    if (bullet.update()) {
+	    if (bullet.update(speedFactor)) {
 		//console.log(bullet.lifeTime);
 
 		// if (bullet.z > 0 && bullet.z < bullet.velZ) {
@@ -995,7 +1005,7 @@ function Player(role) {
 	    playSound("lilpow");
     };
 
-    this.updateRole = function() {};
+    this.updateRole = function(speedFactor) {};
 
     this.drawTunnelIndicators = function() {
 	for (var indicatorDist = lightDist - this.indicatorDelta + this.indicatorOffset;
@@ -1253,12 +1263,15 @@ function Player(role) {
 }
 
 function update() {
-    player.update();
+    now = new Date().getTime();
+    timeSinceLastUpdate = now - lastUpdateTime;
+    player.update(timeSinceLastUpdate/updateTime);
+    lastUpdateTime = now;
     //    console.log(player.barriers.length);
 }
 
 function draw() {
-    player.draw();
+    player.draw();    
 }
 
 function init() {
@@ -1274,6 +1287,7 @@ function init() {
     initSocket();
     maincanvas.oncontextmenu = function(){return false;};
     player = new Player();
+    lastUpdateTime = new Date().getTime();
     updateIntervalId = setInterval(update, updateTime);
     drawIntervalId = setInterval(draw, drawTime);
     disallowSelecting();
@@ -1442,11 +1456,11 @@ function initSocket() {
 	      });
 
     socket.on('connect', function(evt) {
-		  console.log(evt);
+		  //console.log(evt);
 	      });
 
     socket.on('disconnect', function() {
-		  console.log('client disconnect');
+		  //console.log('client disconnect');
 	      });
 
     socket.on('enemy', function(en2) {
@@ -1526,7 +1540,7 @@ function initSocket() {
 	    } else if (player.role == 'gunner') {
 		initGunner();
 	    }
-	    console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
+	    //console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
 	});
 }
 
@@ -1555,7 +1569,7 @@ function initPilot() {
     }
 
     //pilot update
-    player.updateRole = function() {
+    player.updateRole = function(speedFactor) {
 	var clippingSpeed = 50;
 	var oldRad = Math.sqrt(
 	    Math.pow(player.shipX, 2)
@@ -1578,8 +1592,8 @@ function initPilot() {
 		player.mouseX += keyboardSpeed * maxTunnelRadius;
 	    }
 	}*/
-	var mouseTrailProp = .25
-	    *(Math.min(player.shipVel, clippingSpeed)/clippingSpeed*.9+.1);
+	var mouseTrailProp = .15 * speedFactor;
+	    //*(Math.min(player.shipVel * speedFactor, clippingSpeed)/clippingSpeed*.9+.1);
 	//a noncontinuous linear hack for a logarithmic or -a/x-b curve
 	player.shipX = player.mouseX * mouseTrailProp +
 	    player.shipX * (1 - mouseTrailProp);
@@ -1588,8 +1602,7 @@ function initPilot() {
 	var shipPositionRadius = Math.sqrt(
 	    Math.pow(player.shipX, 2)
 		+ Math.pow( player.shipY, 2));
-	if ( shipPositionRadius
-	     > maxTunnelRadius * (1 - player.shipRadius)) {
+	if ( shipPositionRadius > maxTunnelRadius * (1 - player.shipRadius)) {
 	    player.shipX *= maxTunnelRadius
 		* (1 - player.shipRadius)/ shipPositionRadius;
 	    player.shipY *= maxTunnelRadius
@@ -1609,9 +1622,9 @@ function initPilot() {
 	}
 	if (mousePressed) {
 	    if (leftMouse)
-		player.shipVel += acceleration;
+		player.shipVel += acceleration * speedFactor;
 	    else
-		player.shipVel -= backwardAcceleration;
+		player.shipVel -= backwardAcceleration * speedFactor;
 	}
 	if (backgroundMusic) {
 	    if (player.shipVel > 0)
@@ -1635,14 +1648,14 @@ function initGunner() {
     var gunX = 0, gunY = 0;
 
     //gunner updaterole
-    player.updateRole = function() {
+    player.updateRole = function(speedFactor) {
 	
-	gunX = player.mouseX/2 * gunMouseTrailProp +
-	    gunX * (1 - gunMouseTrailProp);
-	gunY = player.mouseY/2 * gunMouseTrailProp +
-	    gunY * (1 - gunMouseTrailProp);
+	gunX = player.mouseX/2 * gunMouseTrailProp * speedFactor +
+	    gunX * (1 - gunMouseTrailProp * speedFactor);
+	gunY = player.mouseY/2 * gunMouseTrailProp * speedFactor +
+	    gunY * (1 - gunMouseTrailProp * speedFactor);
 	if (curbulletTime < bulletTime) {
-	    curbulletTime++;
+	    curbulletTime = Math.min(bulletTime, curbulletTime + speedFactor);
 	}
 	if (mousePressed) {
 	    if (curbulletTime >= bulletTime) {
