@@ -11,7 +11,7 @@ var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poe
 // aesthetics graphics
 var cartoonBarriers = true;
 var cartoonTunnelLines = true;
-var tunnelLineGradient = false;
+var tunnelLineGradient = true;
 var cartoonTunnelIndicators = true;
 var cartoonEnemies = true;
 var cartoonHud = false;
