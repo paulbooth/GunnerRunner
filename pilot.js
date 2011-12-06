@@ -10,9 +10,13 @@ var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poe
 
 // aesthetics graphics
 var cartoonBarriers = true;
-var cartoonTunnel = false;
+var cartoonTunnelLines = true;
+var tunnelLineGradient = false;
+var cartoonTunnelIndicators = true;
 var cartoonEnemies = true;
 var cartoonHud = false;
+var cartoonBullets = true;
+var cartoonLineThickness = 5;
 var barrierAlpha = 1;//.6;
 var numTunnelLines = 5;
 var tunnelLineSpeed = Math.PI/200;
@@ -426,7 +430,7 @@ function Barrier() {
 
 	drawingContext.strokeStyle = "#000";
 	    drawingContext.lineWidth
-		= adjustFor3D(50,this.barrierDist);//3;//barrierRadius
+		= adjustFor3D(cartoonLineThickness,this.barrierDist);//3;//barrierRadius
 	drawingContext.stroke();
 	    }
     };
@@ -500,7 +504,7 @@ function Bullet(x,y,z,xs,ys,zs) {
     this.lifeTime = bulletLifeTime;
     // Bullet draw
     this.draw = function(cameraX, cameraY) {
-	drawingContext.lineWidth = adjustFor3D(bulletRadius * maxTunnelRadius,this.z)*.5;
+	//drawingContext.lineWidth = adjustFor3D(bulletRadius * maxTunnelRadius,this.z)*.5;
 	var color = getColorAtDistance(this.z/5);
 	var drawX = centerX - adjustFor3D(cameraX, this.z) 
 	    + adjustFor3D(this.x, this.z);
@@ -515,6 +519,15 @@ function Bullet(x,y,z,xs,ys,zs) {
 	    drawY - drawR/2,
 	    drawR,
 	    drawR);
+	    if (cartoonBullets) {
+		drawingContext.strokeStyle = "#000";
+		drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, this.z);
+		drawingContext.strokeRect(
+		    drawX - drawR/2,
+		    drawY - drawR/2,
+		    drawR,
+		    drawR);
+	    }
 	}
 	/*
 	drawCircle(drawingContext,
@@ -622,7 +635,8 @@ function Enemy(x,y,z,xs,ys,zs) {
 //	drawingContext.lineWidth = 1;
 	//drawingContext.fillRect(0,0,40,40);
 	var colorValue = getColorAtDistance(this.z/(10));
-	if (colorValue < 1) {console.log('saved'); return;}
+	// if it is too far away, don't bother drawing it
+	if (colorValue < 1) { return;}
 	if (this.damaged > 0) {
 	    var color = 'rgb(' + 
 		[Math.round(255 * (1 - this.damaged)), 
@@ -633,7 +647,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	}
 	//console.log(""+this.x/maxTunnelRadius+","+this.y/maxTunnelRadius+","+this.z);
 	if (cartoonEnemies) {
-	    drawingContext.lineWidth = adjustFor3D(50,this.z);
+	    drawingContext.lineWidth = adjustFor3D(cartoonLineThickness,this.z);
 	}
 	var drawX = centerX 
 	    - adjustFor3D(cameraX, this.z) 
@@ -999,6 +1013,7 @@ function Player(role) {
 			}
 			barrier.barrierBoost = 0;
 			playSound("woom");
+			
 		    }
 		    sendBarrier(this.barriers[i]);
 		    //send({barrier:this.barriers[i]});
@@ -1097,15 +1112,17 @@ function Player(role) {
 						- adjustFor3D(maxTunnelRadius ,indicatorDist+10), 1);
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
 		       'rgb(' + [color,color,color].toString() + ')');
-	    if (cartoonTunnel) {
-
+	    if (cartoonTunnelIndicators) {
+		var indicatorThickness = drawingContext.lineWidth/2;
+		drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist + indicatorThickness)
 		drawCircle(drawingContext,
 			   indicatorX, indicatorY,
-			   indicatorRadius- drawingContext.lineWidth,
+			   indicatorRadius- indicatorThickness,
 		       'rgb(' + [0,0,0].toString() + ')');
+drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist - indicatorThickness)
 	     drawCircle(drawingContext,
 			indicatorX, indicatorY,
-			indicatorRadius+ drawingContext.lineWidth,
+			indicatorRadius+ indicatorThickness,
 		       'rgb(' + [0,0,0].toString() + ')');
 		}
 	    /*
@@ -1280,16 +1297,20 @@ function Player(role) {
 		- this.shipY * endScale + centerY,
 	    triangleBaseX = triangleWidth * endScale * Math.cos(triangleAngle),
 	    triangleBaseY = triangleWidth * endScale * Math.sin(triangleAngle);
-
-	    if (cartoonTunnel) {
+	    
+	    if (cartoonTunnelLines) {
 		drawingContext.beginPath();
 	    drawingContext.moveTo(lightX, lightY);
 
-		drawingContext.lineTo(lineEndX + 2 * triangleBaseX,
-				      lineEndY + 2 * triangleBaseY
+		drawingContext.lineTo(lineEndX + triangleBaseX
+				      + endScale * cartoonLineThickness,
+				      lineEndY + triangleBaseY 
+				      + endScale * cartoonLineThickness
 				 );
-		drawingContext.lineTo(lineEndX - 2 * triangleBaseX,
-				      lineEndY - 2 * triangleBaseY
+		drawingContext.lineTo(lineEndX - triangleBaseX
+				      - endScale * cartoonLineThickness,
+				      lineEndY - triangleBaseY
+				      - endScale * cartoonLineThickness
 				 );
 	    drawingContext.lineTo(lightX, lightY);
 	    drawingContext.closePath();
@@ -1307,12 +1328,15 @@ function Player(role) {
 				 );
 	    drawingContext.lineTo(lightX, lightY);
 	    drawingContext.closePath();
+	    if (tunnelLineGradient) {
 	    var lingrad = drawingContext.createLinearGradient(lightX, lightY, lineEndX, lineEndY);
 	    lingrad.addColorStop(0, 'white');
 	    lingrad.addColorStop(adjustFor3D(1,0)/endScale, 'black');
 	    //lingrad.addColorStop(1,'black');
 	    drawingContext.fillStyle = lingrad;
-
+	    } else {
+		drawingContext.fillStyle = '#999';
+	    }
 
 	    drawingContext.fill();
 	    /* cartoon tunnel lines
