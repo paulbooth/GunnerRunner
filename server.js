@@ -149,7 +149,11 @@ io.sockets.on('connection', function(socket) {
 	    socket.otherPlayer.emit('levelUp');
 	}
     });
-
+    socket.on('recoil', function(recoilVector) {
+	if (socket.gameStart) {
+	    socket.otherPlayer.emit('recoil', recoilVector);
+	}
+    });
     socket.on('disconnect', function(event) {
 	console.log('our ' + socket.role + " disconnected :'-(");
 	var index = socket.pair.indexOf(socket);
