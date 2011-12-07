@@ -9,14 +9,14 @@ var backgroundMusic = true;
 var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
 // aesthetics graphics
-var cartoonBarriers = true;
-var cartoonTunnelLines = true;
+var cartoonBarriers = false;
+var cartoonTunnelLines = false;
 var tunnelLineGradient = true;
-var cartoonTunnelIndicators = true;
-var cartoonEnemies = true;
+var cartoonTunnelIndicators = false;
+var cartoonEnemies = false;
 var cartoonHud = false;
-var cartoonBullets = true;
-var cartoonLineThickness = 50;
+var cartoonBullets = false;
+var cartoonLineThickness = 5;
 var barrierAlpha = 1;//.6;
 var numTunnelLines = 5;
 var tunnelLineSpeed = Math.PI/200;
@@ -1726,6 +1726,7 @@ function initPilot() {
 
     //pilot update
     player.updateRole = function(speedFactor) {
+//	cartoonLineThickness = player.shipVel;
 	var clippingSpeed = 50;
 	var oldRad = Math.sqrt(
 	    Math.pow(player.shipX, 2)
@@ -1903,6 +1904,7 @@ function disallowSelecting() {
 
 function resizeCanvas()
 {
+    var proportionalCartoonLineThickness = cartoonLineThickness/maxTunnelRadius;
     $(maincanvas).attr("width", $(window).width());
     $(maincanvas).attr("height", $(window).height() + ($.browser.mobile?30:0 ));
     centerY = maincanvas.height/2;
@@ -1913,6 +1915,7 @@ function resizeCanvas()
 	window.scrollTo(0,1);
     }
     maxTunnelRadius = Math.max( maincanvas.height, maincanvas.width);
+    cartoonLineThickness = maxTunnelRadius * proportionalCartoonLineThickness;
 }
 function reset() {
     location.reload(true);
