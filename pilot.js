@@ -16,7 +16,7 @@ var cartoonTunnelIndicators = true;
 var cartoonEnemies = true;
 var cartoonHud = false;
 var cartoonBullets = true;
-var cartoonLineThickness = 5;
+var cartoonLineThickness = 50;
 var barrierAlpha = 1;//.6;
 var numTunnelLines = 5;
 var tunnelLineSpeed = Math.PI/200;
@@ -1107,28 +1107,30 @@ function Player(role) {
 	    var indicatorY = centerY
 		- adjustFor3D(this.shipY, indicatorDist);
 	    var color = getColorAtDistance(indicatorDist);
-
-	    drawingContext.lineWidth = Math.max(indicatorRadius
-						- adjustFor3D(maxTunnelRadius ,indicatorDist+10), 1);
-	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
-		       'rgb(' + [color,color,color].toString() + ')');
+	    var indicatorThickness = Math.max(indicatorRadius
+						- adjustFor3D(maxTunnelRadius ,
+							      indicatorDist+10),
+					      1) / 2;
+	    
 	    if (cartoonTunnelIndicators) {
-		var indicatorThickness = drawingContext.lineWidth/2;
+		
 		drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist + indicatorThickness)
 		drawCircle(drawingContext,
 			   indicatorX, indicatorY,
 			   indicatorRadius- indicatorThickness,
 		       'rgb(' + [0,0,0].toString() + ')');
-drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist - indicatorThickness)
-	     drawCircle(drawingContext,
-			indicatorX, indicatorY,
-			indicatorRadius+ indicatorThickness,
-		       'rgb(' + [0,0,0].toString() + ')');
+		if (indicatorDist > indicatorThickness) {
+		    drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist - indicatorThickness)
+		    drawCircle(drawingContext,
+			       indicatorX, indicatorY,
+			       indicatorRadius+ indicatorThickness,
+			       'rgb(' + [0,0,0].toString() + ')');
 		}
-	    /*
-	     (indicatorDist+this.indicatorDelta>=lightDist)
-	     ?'rgb(' + [color, color, color].toString() + ')'
-	     :null );*/
+	    }
+
+	    drawingContext.lineWidth = indicatorThickness * 2;
+	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
+		       'rgb(' + [color,color,color].toString() + ')');
 	}
 
     };
@@ -1285,7 +1287,7 @@ drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist - ind
 	 '#fff', '#fff');*/
 	//drawingContext.globalCompositeOperation = 'source-over';
 	//now want everything else to draw default
-
+    
 	//Now to draw triangles! give depth perception
 	var endScale = adjustFor3D(1,-focalDist * .9);
 	for (var i=0; i < numTunnelLines; i++) {
@@ -1299,18 +1301,22 @@ drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist - ind
 	    triangleBaseY = triangleWidth * endScale * Math.sin(triangleAngle);
 	    
 	    if (cartoonTunnelLines) {
+		var cartoonBaseX = endScale * cartoonLineThickness
+		    * Math.cos(triangleAngle);
+		var cartoonBaseY = endScale * cartoonLineThickness
+		    * Math.sin(triangleAngle);
 		drawingContext.beginPath();
 	    drawingContext.moveTo(lightX, lightY);
 
 		drawingContext.lineTo(lineEndX + triangleBaseX
-				      + endScale * cartoonLineThickness,
+				      + cartoonBaseX,
 				      lineEndY + triangleBaseY 
-				      + endScale * cartoonLineThickness
+				      + cartoonBaseY
 				 );
 		drawingContext.lineTo(lineEndX - triangleBaseX
-				      - endScale * cartoonLineThickness,
+				      - cartoonBaseX,
 				      lineEndY - triangleBaseY
-				      - endScale * cartoonLineThickness
+				      - cartoonBaseY
 				 );
 	    drawingContext.lineTo(lightX, lightY);
 	    drawingContext.closePath();
@@ -1374,10 +1380,8 @@ function draw() {
 }
 
 function init() {
-    try {
     maincanvas = $('#maincanvas')[0];
     //updateIntervalId;
-    resizeCanvas();
     $(window).resize(resizeCanvas);
     /*maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2) +
      Math.pow(maincanvas.width, 2));*/
@@ -1398,9 +1402,7 @@ function init() {
 	initMouse();
     }
     //resizeCanvas();
-    } catch(e) {
-	alert(e);
-    }
+    resizeCanvas();
 }
 
 function initMobile() {
