@@ -425,6 +425,7 @@ function Barrier() {
     };
     //barrier draw
     this.draw = function(cameraX, cameraY) {
+	if (this.barrierDist >= lightDist) return;
 	this.drawBack(cameraX, cameraY);
 	var barrierRadius = adjustFor3D(maxTunnelRadius, this.barrierDist);
 	var barrierX = centerX
