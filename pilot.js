@@ -1421,12 +1421,14 @@ function initMobile() {
 	event.preventDefault();
     }, false); 
     maincanvas.addEventListener('touchmove', function(event) {
-	var touch = event.changedTouches[0]
+	var touch = event.changedTouches[0];
 	setMousePos(touch.pageX, touch.pageY);
 	//alert(event.pageX);
     }, false);
     maincanvas.addEventListener('touchstart', function(event) {
 	mousePressed = true;
+	var touch = event.changedTouches[0];
+	setMousePos(touch.pageX, touch.pageY);
     }, false);
      maincanvas.addEventListener('touchend', function(event) {
 	mousePressed = false;
