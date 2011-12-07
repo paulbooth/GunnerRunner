@@ -867,6 +867,10 @@ function Player(role) {
 	cartoonBarriers = !cartoonBarriers;
 	backgroundMusicURL = levelMusicURLs[player.level%levelMusicURLs.length];
 	startBackgroundMusic();
+
+	if (player.role == 'pilot') {
+	    sendLevelUp();
+	}
 	/*if (enemyDamage < 33) {
 	    enemyDamage += 1;
 	}
