@@ -991,7 +991,7 @@ function Player(role) {
 		if (this.role == 'gunner') {
 		    this.barriers.splice(i,1);
 		}
-	    } else if (dist <= -focalDist) {
+	    } else if (dist <= -focalDist && this.shipVel > 0) {
 		/*	this.barriers[i].barrierDist = lightDist;
 		 this.barriers[i].holes=[];
 		 this.barriers[i].makeRandomBarrier();
