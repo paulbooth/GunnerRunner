@@ -6,7 +6,16 @@ var maxTunnelRadius;
 var soundEffects = true;
 //play background music?
 var backgroundMusic = true;
-var backgroundMusicURL = "audio/beat.mp3"; // "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
+// randomly start in the middle of the audio file?
+var randomMusicStart = true, randomlyStartedMusic = false;
+var backgroundMusicURL = "audio/music/danosongs.com-the-streatham-hill-gods.mp3";
+var levelMusicURLs = ["audio/music/danosongs.com-the-streatham-hill-gods.mp3",
+		      "audio/music/danosongs.com-snapsphere.mp3",
+		      "audio/music/danosongs.com-tidal-circuit.mp3", 
+		      "audio/music/danosongs.com-ten-ton-matrix.mp3"]
+//"audio/cmeow.ogg"; 
+//"audio/music/beat.mp3"; 
+// "audio/Grandaddy - Jed's Other Poem (Beautiful Ground).mp3";
 
 // aesthetics graphics
 var cartoonBarriers = false;
@@ -59,12 +68,12 @@ var bulletRadius = .05;
 //how much health enemies have
 var enemyHealth = 20;
 //probability of enemy appearance
-var enemyChance = .1;
+var enemyChance = .08;
 //how big are the enemies?
 //.5 - 1.5 times this size
 var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
 //how much damage does an enemy do?
-var enemyDamage = 1;
+var enemyDamage = 7;
 // how fast is the enemy?
 var enemySpeed = 40;
 
@@ -135,6 +144,10 @@ function playSound(sound, volume) {
     }
     //console.log(sound);
     var audioChannel = audioChannels[currentAudioChannel];
+    currentAudioChannel++;
+    if (currentAudioChannel == numAudioChannels) {
+	currentAudioChannel = 0;
+    }
     if (volume) {
 	if (volume < .01) return;
 	audioChannel.volume = Math.min(volume,1);
@@ -145,16 +158,22 @@ function playSound(sound, volume) {
     audioChannel.src = "audio/"+sound+".ogg";
     audioChannel.load();
     audioChannel.play();
-    currentAudioChannel++;
-    if (currentAudioChannel == numAudioChannels) {
-	currentAudioChannel = 0;
-    }
 }
 
 function startBackgroundMusic() {
     backgroundMusicChannel.src = backgroundMusicURL;
     backgroundMusicChannel.load();
     backgroundMusicChannel.play();
+    randomlyStartedMusic = false;
+    backgroundMusicChannel.addEventListener('durationchange', function(){
+	if (randomMusicStart && ! randomlyStartedMusic) {
+	backgroundMusicChannel.currentTime = Math.random() 
+	    * backgroundMusicChannel.duration;
+	    // set to false so if we start at the end, 
+	    // the music will loop through continuously to the beginning
+	    randomlyStartedMusic = true;
+	}
+    }, false);
     backgroundMusicChannel.addEventListener('ended', function(){
 						backgroundMusicChannel.load();
 						backgroundMusicChannel.play();
@@ -787,6 +806,7 @@ function Player(role) {
     this.health = playerMaxHealth;
     this.exp = 0;
     this.overlayDrawFunction = null;
+    this.level = 0;
 
     // TODO: combine hurt and heal functions so they behave the same
     // some enemies could be health bonuses
@@ -840,7 +860,14 @@ function Player(role) {
 	playerMaxExp += 25; 
 	playerMaxHealth += 10;
 	player.health += 10;
-	if (enemyDamage < 33) {
+	player.level += 1;
+	cartoonTunnelIndicators = !cartoonTunnelIndicators;
+	cartoonTunnelLines = !cartoonTunnelLines;
+	cartoonEnemies = !cartoonEnemies;
+	cartoonBarriers = !cartoonBarriers;
+	backgroundMusicURL = levelMusicURLs[player.level%levelMusicURLs.length];
+	startBackgroundMusic();
+	/*if (enemyDamage < 33) {
 	    enemyDamage += 1;
 	}
 	if (player.role == 'pilot') {
@@ -855,10 +882,10 @@ function Player(role) {
 	} else if (player.role == 'gunner') {
 	    if (gunMouseTrailProp < .9) {
 		gunMouseTrailProp += Math.random() * .1;
-	    }
+	    }*/
 	    if (enemyChance < 1) {
-		enemyChance += Math.random() * .002;
-	    }
+		enemyChance += Math.random() * .02;
+	    }/*
 	    if (bulletDamage < 100) {
 		bulletDamage += Math.random() * 5;
 	    }
@@ -868,13 +895,14 @@ function Player(role) {
 	    if (bulletSpeed < 150) {
 		bulletSpeed += Math.random() * 5;
 	    }
-	}
+	}*/
 	var alpha = 1;
 	player.overlayDrawFunction = function() {
 	    if (alpha > 0) {
 		alpha -= .05
 		if (alpha < 0) {
 		    player.overlayDrawFunction = null;
+		    alpha = 0;
 		}
 	    }
 	    drawText('Level Up!', null, 'rgba(0,255,0,' + alpha + ')', 'rgba(0,0,100,' + alpha + ')');};
@@ -1638,7 +1666,7 @@ function initSocket() {
 	if (player.role == 'gunner' || player.role == 'pilot') {
 	    clearInterval(updateIntervalId);
 	    updateIntervalId = setInterval(update, updateTime);
-	    playSound("gogogo");
+	    playSound("gogogo", .5);
 	    if (player.role == 'pilot') {
 		this.health = playerMaxHealth;
 		this.exp = 0;
@@ -1786,10 +1814,10 @@ function initPilot() {
 		player.shipVel -= backwardAcceleration * speedFactor;
 	}
 	if (backgroundMusic) {
-	    if (player.shipVel > 0)
-		backgroundMusicChannel.volume = Math.min(player.shipVel/2, clippingSpeed)/clippingSpeed + .1;
-	    else
-		backgroundMusicChannel.volume = 0;
+	    //if (player.shipVel > 0)
+		backgroundMusicChannel.volume = Math.min(Math.abs(player.shipVel/2), clippingSpeed)/clippingSpeed + .1;
+	    //else
+	    //backgroundMusicChannel.volume = 0;
 	}
     };// updateRole
     if (backgroundMusic) {
@@ -1852,7 +1880,8 @@ function initGunner() {
 			 bulletSpawnDepth * bulletScale + player.shipVel);
 	//console.log([player.mouseX, player.mouseY]);
 	player.bullets.push(bul);
-	playSound("doo");
+	//playSound("doo");
+	playSound("csh");
 	//sendRecoil([gunX * bulletScale, gunY * bulletScale, 
 	//	    bulletSpawnDepth * bulletScale]);
     };
