@@ -1481,7 +1481,7 @@ function initMobile() {
 }
 
 function setMousePos(pageX, pageY) {
-    event.preventDefault();
+//    event.preventDefault();
 	//alert('mouse moved!');
 	// from middle of canvas
 	player.mouseX = (pageX - centerX - maincanvas.offsetLeft)*2;
