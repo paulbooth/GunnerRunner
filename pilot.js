@@ -30,6 +30,13 @@ var barrierAlpha = 1;//.6;
 var numTunnelLines = 5;
 var tunnelLineSpeed = Math.PI/200;
 var drawTime = 1000/30;
+// how far in z-direction indicators go
+var indicatorThickness = 12;
+// distance between indicators
+var indicatorDelta = 200; 
+// distance between us and first indicator
+var indicatorOffset = 1000;
+    
 
 // physics
 var updateTime = 1000/30;
@@ -797,9 +804,6 @@ function Player(role) {
     this.shipY = 0;
     this.mouseX = 0;
     this.mouseY = 0;
-    this.indicatorDelta = 200; // distance between indicators
-    this.indicatorOffset = 1000;
-    // distance between us and first indicator
     this.shipVel = 20;
     this.role = role; //set from socket.io
     this.barriers = [];
@@ -964,11 +968,11 @@ function Player(role) {
     this.updateTunnel = function(speedFactor) {
 	//tunnelLineSpeed = 0;//this.shipVel / 50./100;
 	initialLineAngle = (initialLineAngle + tunnelLineSpeed * speedFactor) % (Math.PI*2);
-	this.indicatorOffset = (this.indicatorOffset - this.shipVel * speedFactor);
-	if (this.indicatorOffset < 0) {
-	    this.indicatorOffset += this.indicatorDelta;
-	} else if (this.indicatorOffset > this.indicatorDelta) {
-	    this.indicatorOffset -= this.indicatorDelta;
+	indicatorOffset = (indicatorOffset - this.shipVel * speedFactor);
+	if (indicatorOffset < 0) {
+	    indicatorOffset += indicatorDelta;
+	} else if (indicatorOffset > indicatorDelta) {
+	    indicatorOffset -= indicatorDelta;
 	}
     };
 
@@ -1133,37 +1137,68 @@ function Player(role) {
     this.updateRole = function(speedFactor) {};
 
     this.drawTunnelIndicators = function() {
-	for (var indicatorDist = lightDist - this.indicatorDelta + this.indicatorOffset;
-	     indicatorDist > 0;
-	     indicatorDist -= this.indicatorDelta) {
+	for (var indicatorDist = lightDist - indicatorDelta + indicatorOffset;
+	     indicatorDist > -focalDist;
+	     indicatorDist -= indicatorDelta) {
+	    
+	    var indicatorBack = indicatorDist + indicatorThickness;
+
 	    var indicatorRadius = adjustFor3D(maxTunnelRadius, indicatorDist);
+	    
 	    var indicatorX = centerX
 		- adjustFor3D(this.shipX, indicatorDist);
 	    var indicatorY = centerY
 		- adjustFor3D(this.shipY, indicatorDist);
+
+	    var indicatorBackRadius = adjustFor3D(maxTunnelRadius, indicatorBack);
+	    var indicatorBackX = centerX
+		- adjustFor3D(this.shipX, indicatorBack);
+	    var indicatorBackY = centerY
+		- adjustFor3D(this.shipY, indicatorBack);
+
 	    var color = getColorAtDistance(indicatorDist);
-	    var indicatorThickness = Math.max(indicatorRadius
-						- adjustFor3D(maxTunnelRadius ,
-							      indicatorDist+10),
-					      1) / 2;
 	    
 	    if (cartoonTunnelIndicators) {
+		drawingContext.fillStyle = '#000';
+		var indicatorCartoonLineThickness = cartoonLineThickness/7;
+		var indicatorCartoonDist = indicatorDist + indicatorThickness + indicatorCartoonLineThickness;
+		var indicatorCartoonRadius = adjustFor3D(maxTunnelRadius,
+							  indicatorCartoonDist);
+		var indicatorCartoonX = centerX
+		    - adjustFor3D(this.shipX, indicatorCartoonDist);
+		var indicatorCartoonY = centerY
+		    - adjustFor3D(this.shipY, indicatorCartoonDist);
 		
-		drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist + indicatorThickness)
-		drawCircle(drawingContext,
-			   indicatorX, indicatorY,
-			   indicatorRadius- indicatorThickness,
-		       'rgb(' + [0,0,0].toString() + ')');
-		if (indicatorDist > indicatorThickness) {
-		    drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, indicatorDist - indicatorThickness)
-		    drawCircle(drawingContext,
-			       indicatorX, indicatorY,
-			       indicatorRadius+ indicatorThickness,
-			       'rgb(' + [0,0,0].toString() + ')');
+		
+		var indicatorCartoonBackDist = indicatorDist - indicatorCartoonLineThickness;
+		if (indicatorCartoonBackDist <= -focalDist) { 
+		    indicatorCartoonBackDist = indicatorDist;
 		}
-	    }drawingContext.lineWidth = indicatorThickness * 2;
-	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
-		       'rgb(' + [color,color,color].toString() + ')');
+		var indicatorCartoonBackRadius = adjustFor3D(maxTunnelRadius,
+							  indicatorCartoonBackDist);
+		var indicatorCartoonBackX = centerX
+		    - adjustFor3D(this.shipX, indicatorCartoonBackDist);
+		var indicatorCartoonBackY = centerY
+		    - adjustFor3D(this.shipY, indicatorCartoonBackDist);
+
+		drawingContext.beginPath();
+		drawingContext.arc(indicatorCartoonX, indicatorCartoonY, 
+				   indicatorCartoonRadius, 0, Math.PI * 2, false);
+		drawingContext.arc(indicatorCartoonBackX, indicatorCartoonBackY, 
+				   indicatorCartoonBackRadius, 2 * Math.PI, 0, true);
+		drawingContext.closePath();
+		drawingContext.fill();
+	    }
+	    drawingContext.fillStyle = 'rgb(' + [color,color,color].toString() + ')';
+	    drawingContext.beginPath();
+	    drawingContext.arc(indicatorX, indicatorY, indicatorRadius, 0, 
+			       Math.PI * 2, false);
+	    drawingContext.arc(indicatorBackX, indicatorBackY, indicatorBackRadius,
+			       2 * Math.PI, 0, true);
+	    drawingContext.closePath();
+	    drawingContext.fill();
+	    
+	    
 	}
 
     };
