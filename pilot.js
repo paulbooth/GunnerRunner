@@ -1161,16 +1161,9 @@ function Player(role) {
 			       indicatorRadius+ indicatorThickness,
 			       'rgb(' + [0,0,0].toString() + ')');
 		}
-	    }
-	    //drawingContext.beginPath();
-
-
-	    
-	    
-	    drawingContext.lineWidth = indicatorThickness * 2;
+	    }drawingContext.lineWidth = indicatorThickness * 2;
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
 		       'rgb(' + [color,color,color].toString() + ')');
-	    
 	}
 
     };
