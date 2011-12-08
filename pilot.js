@@ -23,7 +23,7 @@ var cartoonTunnelLines = false;
 var tunnelLineGradient = true;
 var cartoonTunnelIndicators = false;
 var cartoonEnemies = false;
-var cartoonHud = false;
+var cartoonHud = true;
 var cartoonBullets = false;
 var cartoonLineThickness = 5;
 var barrierAlpha = 1;//.6;
@@ -403,6 +403,7 @@ function Barrier() {
 
 	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
 	this.drawHoles(barrierX, barrierY, barrierRadius);
+	drawingContext.closePath();
 	/*
 	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
 	drawingContext.fill();
@@ -443,6 +444,7 @@ function Barrier() {
 
 	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
 	this.drawHoles(barrierX, barrierY, barrierRadius);
+	drawingContext.closePath();
 	/*
 	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
 	drawingContext.fill();
@@ -1160,10 +1162,15 @@ function Player(role) {
 			       'rgb(' + [0,0,0].toString() + ')');
 		}
 	    }
+	    //drawingContext.beginPath();
 
+
+	    
+	    
 	    drawingContext.lineWidth = indicatorThickness * 2;
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
 		       'rgb(' + [color,color,color].toString() + ')');
+	    
 	}
 
     };
