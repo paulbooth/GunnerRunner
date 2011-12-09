@@ -394,47 +394,94 @@ function Barrier() {
     };
 
     this.drawBack = function(cameraX, cameraY) {
-	var backDist = this.barrierDist + this.thickness;
+	/*var backDist = this.barrierDist + this.thickness;
 	var barrierRadius = adjustFor3D(maxTunnelRadius, backDist);
 	var barrierX = centerX
 	    - adjustFor3D(cameraX, backDist);
 	var barrierY = centerY
-	    - adjustFor3D(cameraY, backDist);
+	    - adjustFor3D(cameraY, backDist);*/
 	var color = Math.floor(getColorAtDistance(this.barrierDist)/2);
 
 
-	drawingContext.beginPath();
-	drawingContext.lineWidth = 1;
+	
 
 	drawingContext.fillStyle = 'rgba(' + [color, color, color].toString() + ',' + barrierAlpha + ')';;
 
-	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
-	this.drawHoles(barrierX, barrierY, barrierRadius);
-	drawingContext.closePath();
+	//drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
+	//this.drawHoles(barrierX, barrierY, barrierRadius, true);
+	//this.drawBackHoles(cameraX, cameraY);
+	//this.drawFrontHoles(cameraX, cameraY);
+	this.drawThroughHoles(cameraX, cameraY);
+
 	/*
 	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
-	drawingContext.fill();
+
+    };
+    this.drawThroughHoles = function(cameraX, cameraY) {
+	var backDist = this.barrierDist + this.thickness;
+	var backBarrierRadius = adjustFor3D(maxTunnelRadius, backDist);
+	var backBarrierX = centerX
+	    - adjustFor3D(cameraX, backDist);
+	var backBarrierY = centerY
+	    - adjustFor3D(cameraY, backDist);
+
+	var barrierRadius = adjustFor3D(maxTunnelRadius, this.barrierDist);
+	var barrierX = centerX
+	    - adjustFor3D(cameraX, this.barrierDist);
+	var barrierY = centerY
+	    - adjustFor3D(cameraY, this.barrierDist);
+
+	for (var i = 0; i < this.holes.length; i++) {
+	    drawingContext.beginPath();
+	    this.drawHole(this.holes[i], barrierX, barrierY, barrierRadius, false);
+	    this.drawHole(this.holes[i], backBarrierX, backBarrierY, backBarrierRadius, true);
+	    drawingContext.closePath();
+	    drawingContext.fill();
+	}
+	//drawingContext.closePath();
+	/*
+	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
+	//drawingContext.fill();
+    };
+    this.drawFrontHoles = function(cameraX, cameraY) {
+	var barrierRadius = adjustFor3D(maxTunnelRadius, this.barrierDist);
+	var barrierX = centerX
+	    - adjustFor3D(cameraX, this.barrierDist);
+	var barrierY = centerY
+	    - adjustFor3D(cameraY, this.barrierDist);
+	//var color = Math.floor(getColorAtDistance(this.barrierDist)/2);
+
+	this.drawHoles(barrierX, barrierY, barrierRadius, true);
+	//drawingContext.closePath();
+	/*
+	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
+	//drawingContext.fill();
     };
 
-    this.drawHoles = function(x,y,r) {
-	for (var i = 0; i < this.holes.length; i++) {
-	    var hole = this.holes[i], holerad;
-	    if (hole.length > 3)
-		holerad = (hole[4] * (hole[2] - hole[3]) + hole[3]) * r;
-	    else
-		holerad = hole[2] * r;
-	    holex = x + hole[0] * Math.cos(hole[1] + this.rotation) * r,
-	    holey = y + hole[0] * Math.sin(hole[1] + this.rotation) * r;
-
-	    drawingContext.moveTo(holex + holerad, holey);
-	    drawingContext.arc(holex, holey, holerad,  Math.PI * 2 - 0.01, 0,true);
+    this.drawHole = function (hole, x, y, r, dir) {
+	var holerad = 0;
+	if (hole.length > 3) {
+	    holerad = (hole[4] * (hole[2] - hole[3]) + hole[3]) * r;
+	} else {
+	    holerad = hole[2] * r;
 	}
+	holex = x + hole[0] * Math.cos(hole[1] + this.rotation) * r,
+	holey = y + hole[0] * Math.sin(hole[1] + this.rotation) * r;
 
+	drawingContext.moveTo(holex + holerad, holey);
+	drawingContext.arc(holex, holey, holerad,  dir?Math.PI * 2 - 0.01:0, dir?0:Math.PI * 2, dir);
+
+    }
+    this.drawHoles = function(x,y,r, dir) {
+	for (var i = 0; i < this.holes.length; i++) {
+	    this.drawHole(this.holes[i], x, y, r, dir);
+	}
     };
     //barrier draw
     this.draw = function(cameraX, cameraY) {
 	if (this.barrierDist >= lightDist) return;
 	this.drawBack(cameraX, cameraY);
+//	return;
 	var barrierRadius = adjustFor3D(maxTunnelRadius, this.barrierDist);
 	var barrierX = centerX
 	    - adjustFor3D(cameraX, this.barrierDist);
@@ -450,7 +497,7 @@ function Barrier() {
 	drawingContext.fillStyle = 'rgba(' + [color, color, color].toString() + ',' + barrierAlpha +')';
 
 	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
-	this.drawHoles(barrierX, barrierY, barrierRadius);
+	this.drawHoles(barrierX, barrierY, barrierRadius, true);
 	drawingContext.closePath();
 	/*
 	 drawingContext.arc(barrierX+barrierRadius/2, barrierY, barrierRadius/4,  Math.PI * 2 - 0.01, 0,true);*/
