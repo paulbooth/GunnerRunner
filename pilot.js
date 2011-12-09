@@ -29,7 +29,7 @@ var cartoonLineThickness = 5;
 var barrierAlpha = 1;//.6;
 var numTunnelLines = 5;
 var tunnelLineSpeed = Math.PI/200;
-var drawTime = 1000/30;
+var drawTime = 1000/15;
 // how far in z-direction indicators go
 var indicatorThickness = 12;
 // distance between indicators
@@ -1217,16 +1217,23 @@ function Player(role) {
 		drawingContext.arc(indicatorCartoonX, indicatorCartoonY, 
 				   indicatorCartoonRadius, 0, Math.PI * 2, false);
 		drawingContext.arc(indicatorCartoonBackX, indicatorCartoonBackY, 
-				   indicatorCartoonBackRadius, 2 * Math.PI, 0, true);
+				   indicatorCartoonBackRadius, 2 * Math.PI, 0.01,
+				   true);
+		drawingContext.lineTo(indicatorCartoonBackX
+				      + indicatorCartoonBackRadius, 
+				      indicatorCartoonBackY);
 		drawingContext.closePath();
 		drawingContext.fill();
 	    }
 	    drawingContext.fillStyle = 'rgb(' + [color,color,color].toString() + ')';
 	    drawingContext.beginPath();
 	    drawingContext.arc(indicatorX, indicatorY, indicatorRadius, 0, 
-			       Math.PI * 2, false);
+	    Math.PI * 2 , false);
+	    //drawingContext.moveTo(indicatorBackX + indicatorBackRadius, indicatorBackY);
 	    drawingContext.arc(indicatorBackX, indicatorBackY, indicatorBackRadius,
-			       2 * Math.PI, 0, true);
+			       2 * Math.PI, 0.01, true);
+	    drawingContext.lineTo(indicatorBackX + indicatorBackRadius,
+				  indicatorBackY);
 	    drawingContext.closePath();
 	    drawingContext.fill();
 	    
