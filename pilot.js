@@ -20,6 +20,7 @@ var levelMusicURLs = ["audio/music/danosongs.com-the-streatham-hill-gods.mp3",
 // aesthetics graphics
 var cartoonBarriers = false;
 var cartoonTunnelLines = false;
+// use gradient to fade to white and adjust colors of indicators
 var tunnelLineGradient = true;
 var cartoonTunnelIndicators = false;
 var cartoonEnemies = false;
@@ -27,13 +28,13 @@ var cartoonHud = true;
 var cartoonBullets = false;
 var cartoonLineThickness = 5;
 var barrierAlpha = 1;//.6;
-var numTunnelLines = 5;
+var numTunnelLines = 7;
 var tunnelLineSpeed = Math.PI/200;
 var drawTime = 1000/15;
 // how far in z-direction indicators go
 var indicatorThickness = 12;
 // distance between indicators
-var indicatorDelta = 200; 
+var indicatorDelta = 170; 
 // distance between us and first indicator
 var indicatorOffset = 1000;
     
@@ -67,7 +68,7 @@ var bulletLifeTime = 300;
 // how much damage a bullet does to enemies
 var bulletDamage = 10;
 //how fast bullets move
-var bulletSpeed = 100;
+var bulletSpeed = 40;
 //how big the bullets are
 var bulletRadius = .05;
 
@@ -75,14 +76,16 @@ var bulletRadius = .05;
 //how much health enemies have
 var enemyHealth = 20;
 //probability of enemy appearance
-var enemyChance = .08;
+var enemyChance = .05;
 //how big are the enemies?
 //.5 - 1.5 times this size
-var enemySize = .25;//enemySize = .25 * maxTunnelRadius;
+var enemySize = .15;//enemySize = .25 * maxTunnelRadius;
 //how much damage does an enemy do?
 var enemyDamage = 7;
 // how fast is the enemy?
-var enemySpeed = 40;
+var enemySpeed = 15;
+// how much damage multiplication should enemies get for barriers?
+var enemyBarrierMult = 3;
 
 //for barrier
 //fraction of speed to move backwards when hit barrier
@@ -417,6 +420,8 @@ function Barrier() {
 	drawingContext.fill();
     };
 
+    // draws the holes going through this barrier
+    // only works for holes, not inverted holes.
     this.drawThroughHoles = function(cameraX, cameraY) {
 	var color = Math.floor(getColorAtDistance(this.barrierDist)/2);
 	drawingContext.fillStyle = 'rgba(' + [color, color, color].toString() + ',' + barrierAlpha + ')';;
@@ -434,9 +439,14 @@ function Barrier() {
 	    - adjustFor3D(cameraY, this.barrierDist);
 
 	for (var i = 0; i < this.holes.length; i++) {
+	    // a hack to not draw the hole that is the tunnel
+	    // affects inverted barriers
+	    // TODO(thepaulbooth): fix this, and make inverted barriers clearer
+	    if (this.holes[i][2] >= 1 && this.holes[i].length == 3) {continue;}
 	    drawingContext.beginPath();
 	    this.drawHole(this.holes[i], barrierX, barrierY, barrierRadius, false);
-	    this.drawHole(this.holes[i], backBarrierX, backBarrierY, backBarrierRadius, true);
+		this.drawHole(this.holes[i], backBarrierX, backBarrierY, 
+			      backBarrierRadius, true);
 	    drawingContext.closePath();
 	    drawingContext.fill();
 	}
@@ -461,7 +471,7 @@ function Barrier() {
 	    this.drawHole(this.holes[i], x, y, r, dir);
 	}
     };
-    //barrier draw
+    //barrier draw barrier
     this.draw = function(cameraX, cameraY) {
 	if (this.barrierDist >= lightDist) return;
 	//this.drawBack(cameraX, cameraY);
@@ -474,12 +484,15 @@ function Barrier() {
 	    - adjustFor3D(cameraY, this.barrierDist);
 	var color = getColorAtDistance(this.barrierDist*.75);
 	if (this.damaged > 0) {
-	    color = Math.round( color * (1 - this.damaged));
+	    var damagedColor = Math.round( color * (1 - this.damaged));
+	    drawingContext.fillStyle = 'rgba(' + [color, damagedColor, damagedColor ].toString() + ',' + barrierAlpha +')';
+	} else {
+	    drawingContext.fillStyle = 'rgba(' + [color, color, color].toString() + ',' + barrierAlpha +')';
 	}
 
 	drawingContext.beginPath();
 
-	drawingContext.fillStyle = 'rgba(' + [color, color, color].toString() + ',' + barrierAlpha +')';
+	
 
 	drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
 	this.drawHoles(barrierX, barrierY, barrierRadius, true);
@@ -496,9 +509,9 @@ function Barrier() {
 	    }
     };
 
-    // Barrier update
+    // Barrier update barrier
     this.update = function(speedFactor) {
-	if (this.damaged > 0) { this.damaged -= .1;}
+	if (this.damaged > 0) { this.damaged -= .1 * speedFactor;}
 	this.updateHoles(speedFactor);
 	this.rotation = (this.rotation + this.rotationSpeed * speedFactor) % (Math.PI * 2);
 	this.barrierDist = this.barrierDist - player.shipVel * speedFactor;
@@ -599,13 +612,16 @@ function Bullet(x,y,z,xs,ys,zs) {
 		   'rgb(' + [color, color, color].toString() + ')');*/
 
     };
-    // Bullet update
+    // Bullet update bullet
     this.update = function(speedFactor) {
 	this.lifeTime--;
 	if (this.lifeTime <= 0) return false;
 	this.x += this.velX * speedFactor;
 	this.y += this.velY * speedFactor;
+	// dependent bullet speed
 	this.z += (this.velZ - player.shipVel) * speedFactor;
+	//independent bullet speed
+	//this.z += (this.velZ ) * speedFactor;
 	var r = Math.sqrt(
 	    Math.pow(this.x, 2)
 		+ Math.pow( this.y, 2));
@@ -630,7 +646,7 @@ function Bullet(x,y,z,xs,ys,zs) {
 	for (var i = 0; i < player.enemies.length; i++) {
 	    var enemy = player.enemies[i];
 	    if (this.z >= enemy.z
-	       && this.z < enemy.z + Math.abs(this.z)
+	       && this.z < enemy.z + Math.abs(this.velZ)
 		&& (enemy.checkForHit(this.x,this.y))) {
 		enemy.hurt(bulletDamage);
 		if (enemy.health <= 0) {
@@ -691,7 +707,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	this.health += amount;
     }
 
-    // Enemy draw
+    // Enemy draw enemy
     this.draw = function(cameraX, cameraY) {
 //	drawingContext.lineWidth = 1;
 	//drawingContext.fillRect(0,0,40,40);
@@ -699,10 +715,9 @@ function Enemy(x,y,z,xs,ys,zs) {
 	// if it is too far away, don't bother drawing it
 	if (colorValue < 1) { return;}
 	if (this.damaged > 0) {
+	    var damagedColorValue = Math.round(colorValue * (1 - this.damaged))
 	    var color = 'rgb(' + 
-		[Math.round(255 * (1 - this.damaged)), 
-		 Math.round(colorValue * (1 - this.damaged)), 
-		 Math.round(colorValue * (1 - this.damaged))].toString() + ')'
+		[colorValue, damagedColorValue, damagedColorValue].toString() + ')'
 	} else {
 	    var color = 'rgb(' + [colorValue, colorValue, colorValue].toString() + ')'
 	}
@@ -726,7 +741,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	}
 
 // uncomment to turn enemies into bears or mice or something
-/*
+	/*if (this.damaged <=0) {
 	drawCircle(drawingContext,
 		       drawX + drawR/1.41,
 		       drawY - drawR/1.41,
@@ -739,28 +754,40 @@ function Enemy(x,y,z,xs,ys,zs) {
 		       drawR/2,
 		       null,
 		       color);
-		       */
+	}*/
 	// enemy face draw
-	if (  this.velZ < 0 && this.damaged <= 0 && drawR > 4) {
+	if (  this.velZ < 0 && drawR > 4) {
 	    var eyeFillStyle = 'rgb(' + 255 + ',' + colorValue + ',' + colorValue + ')';
-	    drawCircle(drawingContext,
-		       drawX + drawR/1.41/2,
-		       drawY - drawR/1.41/2,
-		       drawR/4,
-		       null,
-		       eyeFillStyle);
-	    drawCircle(drawingContext,
-		       drawX - drawR/1.41/2,
-		       drawY - drawR/1.41/2,
-		       drawR/4,
-		       null,
-		       eyeFillStyle);
+	    if (this.damaged > 0) {
+		drawingContext.fillStyle = eyeFillStyle;
+		drawingContext.fillRect( drawX + drawR/1.41/2 - drawR/1.41/4,
+			   drawY - drawR/1.41/2 - drawR/16,
+			  drawR/2,
+			  drawR/8);
+		drawingContext.fillRect( drawX - drawR/1.41/2 - drawR/1.41/4,
+			   drawY - drawR/1.41/2 - drawR/16,
+			  drawR/2,
+			  drawR/8);
+	    } else {
+		drawCircle(drawingContext,
+			   drawX + drawR/1.41/2,
+			   drawY - drawR/1.41/2,
+			   drawR/4,
+			   null,
+			   eyeFillStyle);
+		drawCircle(drawingContext,
+			   drawX - drawR/1.41/2,
+			   drawY - drawR/1.41/2,
+			   drawR/4,
+			   null,
+			   eyeFillStyle);
+	    }
 	}
 	
     };
-    //Enemy update
+    // Enemy update enemy
     this.update = function(speedFactor) {
-	if (this.damaged > 0) {this.damaged -= .1; }
+	if (this.damaged > 0) {this.damaged -= .1 * speedFactor; }
 	this.velX += (Math.random() - .5) * 10;
 	this.velY += (Math.random() - .5) * 10;
 //	if (player.x < this.x) this.velX -=  100;
@@ -769,9 +796,14 @@ function Enemy(x,y,z,xs,ys,zs) {
 //	if (player.y > this.y) this.velY +=  100;
 	this.velX += .01 * (player.shipX - this.x);
 	this.velY += .01 * (player.shipY - this.y);
+	// attempt to get the buggers to speed up when needed, and not when not
+	//this.velZ += (player.role == 'gunner'?-1:1) * .001 * (this.z)
 	this.x += this.velX * speedFactor;
 	this.y += this.velY * speedFactor;
+	// how it should work, what with "real physics or whatever"
 	this.z += (this.velZ - player.shipVel) * speedFactor;
+	// attempt to give the gunner consistent things to shoot.
+	//this.z += (this.velZ) * speedFactor;
 	var r = Math.sqrt(
 	    Math.pow(this.x, 2)
 		+ Math.pow(this.y, 2));
@@ -798,13 +830,29 @@ function Enemy(x,y,z,xs,ys,zs) {
 	    if (this.z >= barrier.barrierDist
 		&& this.z < barrier.barrierDist
 		+Math.max(barrier.thickness, this.velZ * speedFactor)) {
+	    // simulates an XOR
+	    // attempt to create better collision detection
+	    // if enemy on one side of barrier, then next step will be on other side
+	    // a collision has taken place. replaces above if statement
+	    /*var barrierBackDist = barrier.barrierDist + barrier.thickness;
+	    var nextZ = this.z + this.velZ + player.shipVel;
+	    if ( (this.z < barrier.barrierDist 
+		 ? nextZ >= barrier.barrierDist
+		  : nextZ < barrier.barrierDist)
+		 || (this.z < barrierBackDist 
+		 ? nextZ >= barrierBackDist
+		  : nextZ < barrierBackDist)
+	       ) {*/
 		if (barrier.checkForHit(this.x, this.y)) {
+		    barrier.hurt(this.damage * enemyBarrierMult);
 		    this.velZ *= -1;
-		    barrier.hurt(this.damage);
+		    //if (this.z > barrier.barrierDist) {
 		    if (this.velZ > 0) {
-			this.z = barrier.barrierDist +barrier.thickness;
+			this.z = barrier.barrierDist + barrier.thickness;
+			//this.velZ = Math.abs(this.velZ);
 		    } else {
 			this.z = barrier.barrierDist;
+			//this.velZ = -Math.abs(this.velZ);
 		    }
 		    playSound("cmeow", adjustFor3D(1,this.z));
 		    //return false;
@@ -904,6 +952,16 @@ function Player(role) {
 	cartoonTunnelLines = !cartoonTunnelLines;
 	cartoonEnemies = !cartoonEnemies;
 	cartoonBarriers = !cartoonBarriers;
+	if (player.level % 2 == 0) {
+	    if (player.level % 4 == 0) {
+		barrierAlpha = 1;
+		if (player.level % 4 == 0) {
+		    tunnelLineGradient = !tunnelLineGradient;
+		}
+	    } else {
+		barrierAlpha = .6;
+	    }
+	}
 	backgroundMusicURL = levelMusicURLs[player.level%levelMusicURLs.length];
 	startBackgroundMusic();
 
@@ -967,9 +1025,9 @@ function Player(role) {
 	// I'm not sure why this is in the if statement... shouldn't it happen
 	// all the time?
 	this.updateEnemies(speedFactor);
-	    this.updateBullets(speedFactor);
-	    //this.draw();
-	    this.updateRole(speedFactor);
+	this.updateBullets(speedFactor);
+	//this.draw();
+	this.updateRole(speedFactor);
 
 	    //healing player shield health
 	    /*if ( (playerRegen != 0 )
@@ -1114,7 +1172,7 @@ function Player(role) {
 			this.enemies.splice(i,1);
 			i--;
 
-			return false;
+			//return false;
 		    }
 		} else if (enemy.z < -focalDist) {
 		    //send({enemy:enemy});
@@ -1129,7 +1187,7 @@ function Player(role) {
 		//alert("die!");
 	    }
 	}
-	return true;
+	//return true;
     };
 
     this.updateBullets = function(speedFactor) {
@@ -1188,8 +1246,12 @@ function Player(role) {
 	    var indicatorBackY = centerY
 		- adjustFor3D(this.shipY, indicatorBack);
 
-	    var color = getColorAtDistance(indicatorDist);
-	    
+	    var color;
+	    if (tunnelLineGradient) {
+		color = getColorAtDistance(indicatorDist);
+	    } else {
+		color = 126;
+	    }
 	    if (cartoonTunnelIndicators) {
 		drawingContext.fillStyle = '#000';
 		var indicatorCartoonLineThickness = cartoonLineThickness/7;
@@ -1941,7 +2003,7 @@ function initGunner() {
 		Math.random() * enemySpeed - enemySpeed/2, 
 		Math.random() * enemySpeed - enemySpeed/2, 
 		(Math.random() * -enemySpeed - enemySpeed/2) 
-		    + Math.min(player.shipVel,0));
+		    + Math.min(player.shipVel,0) * .1);
 	    player.enemies.push(enemy);
 	}
     };
