@@ -955,14 +955,17 @@ function Player(role) {
 	cartoonTunnelLines = !cartoonTunnelLines;
 	cartoonEnemies = !cartoonEnemies;
 	cartoonBarriers = !cartoonBarriers;
+
 	if (player.level % 2 == 0) {
 	    if (player.level % 4 == 0) {
 		barrierAlpha = 1;
 		if (player.level % 4 == 0) {
 		    tunnelLineGradient = !tunnelLineGradient;
 		}
+		cartoonHud = true;
 	    } else {
-		barrierAlpha = .6;
+		barrierAlpha = .6
+		cartoonHud = false;
 	    }
 	}
 	backgroundMusicURL = levelMusicURLs[player.level%levelMusicURLs.length];
@@ -1346,19 +1349,27 @@ function Player(role) {
     };
 
     this.drawHud = function() {
-	drawingContext.strokeStyle = 'rgba(0,0,0,'+(cartoonHud?1:0) +')';
+	var textSize = hudHeight/2;
+	drawingContext.fillStyle = '#000';
+	drawingContext.font =  'bold ' + textSize +'pt Helvetica,Arial';
+	if (cartoonHud) {
+	drawingContext.strokeStyle = 'rgb(0,0,0)';
 	drawingContext.lineWidth = 3;
 	// life bar health bar outline
 	roundRect(drawingContext, 
 		  centerX - hudWidth/2, hudHeight/2, 
 		  hudWidth * .35, hudHeight, hudHeight/4, 
 		  false, true);
+	drawingContext.strokeText("HEALTH", centerX - hudWidth/2 + 10,
+				hudHeight * 1.5 - textSize/2);
 	// exp bar outline
 	roundRect(drawingContext, 
 		  centerX - hudWidth * .1, hudHeight/2, 
 		  hudWidth * .65, hudHeight, hudHeight/4, 
 		  false, true);
-
+	drawingContext.strokeText("EXP", centerX - hudWidth * .1 + 10,
+				hudHeight * 1.5 - textSize/2);
+	}
 	var life = this.health / playerMaxHealth;
 	var lifeColor = Math.round(life * 255);
 	//life
@@ -1368,7 +1379,9 @@ function Player(role) {
 		  centerX - hudWidth/2, hudHeight/2,
 		  hudWidth * .35 * life, hudHeight,
 		  Math.min(hudHeight/4, hudWidth * .175 * life), 
-		  true, true);
+		  true, cartoonHud);
+	drawingContext.fillText("HEALTH", centerX - hudWidth/2 + 10,
+				hudHeight * 1.5 - textSize/2);
 	var exp = this.exp / playerMaxExp;
 	var expColor = Math.round(exp * 255);
 	//Exp bar
@@ -1378,7 +1391,9 @@ function Player(role) {
 		  centerX - hudWidth * .1, hudHeight/2, 
 		  hudWidth * .65 * exp, hudHeight, 
 		  Math.min(hudHeight/4, hudWidth * .65/2 * exp), 
-		  true, true);
+		  true, cartoonHud);
+	drawingContext.fillText("EXP", centerX - hudWidth * .1 + 10,
+				hudHeight * 1.5 - textSize/2);
     };
 
     // draws an effect if damaged
