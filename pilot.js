@@ -37,7 +37,8 @@ var indicatorThickness = 12;
 var indicatorDelta = 170; 
 // distance between us and first indicator
 var indicatorOffset = 1000;
-    
+// time of non-input to show help
+var helpTime = 10000; 
 
 // physics
 var updateTime = 1000/30;
@@ -896,6 +897,7 @@ function Player(role) {
     this.overlayDrawFunction = null;
     this.level = 0;
     this.damaged = 0;
+    this.lastInputTime = 0;
 
     // TODO: combine hurt and heal functions so they behave the same
     // some enemies could be health bonuses
@@ -1063,7 +1065,9 @@ function Player(role) {
 	this.drawHud();
 	this.drawCursor();
 	if (this.overlayDrawFunction) { this.overlayDrawFunction(); }
-
+	if (new Date().getTime() > this.lastInputTime + helpTime) {
+	    this.drawHelp();
+	}
     };
 
     this.updateTunnel = function(speedFactor) {
@@ -1402,8 +1406,32 @@ function Player(role) {
 	console.log(damagedColor);
 	drawingContext.fillStyle = 'rgba(255,0,0,' + damagedColor + ')';
 	drawingContext.fillRect(0,0, centerX * 2, centerY * 2);
-    }
+    };
 
+    // draws the help text, if needed
+    this.drawHelp = function () {
+	var helpText = 'You have to do stuff to play.'
+	var textSize = centerX/17;
+	drawingContext.font =  'bold ' + textSize + 'pt Helvetica,Arial';
+	if (player.role == 'pilot') {
+	    if ($.browser.mobile) {
+		helpText = 'Drag to move and fly through barriers!'
+	    } else {
+		helpText = 'Hold left click to accelerate! Right click reverses!'
+	    }
+	} else {
+	    if ($.browser.mobile) {
+		helpText = 'Drag to control the gun and shoot enemies!'
+	    } else {
+		helpText = 'Left mouse button shoots enemies!'
+	    }
+	}
+	var metrics = drawingContext.measureText(helpText);
+	console.log(metrics);
+	drawingContext.fillStyle = '#000'
+	drawingContext.fillText(helpText, centerX - metrics.width/2, 
+				centerY - textSize/2);
+    };
     //for pilot. gets overrided for gunner
     this.drawCursor = function() {
 	//drawingContext.fillStyle="rgba(0,255,0,.1)";
@@ -1625,14 +1653,17 @@ function initMobile() {
 	var touch = event.changedTouches[0];
 	setMousePos(touch.pageX, touch.pageY);
 	//alert(event.pageX);
+	player.lastInputTime = new Date().getTime();
     }, false);
     maincanvas.addEventListener('touchstart', function(event) {
 	mousePressed = true;
 	var touch = event.changedTouches[0];
 	setMousePos(touch.pageX, touch.pageY);
+	player.lastInputTime = new Date().getTime();
     }, false);
      maincanvas.addEventListener('touchend', function(event) {
 	mousePressed = false;
+	player.lastInputTime = new Date().getTime();
     }, false);
     //mousePressed = true;
     /*$('#maincanvas').bind('tap', function(event) { 
@@ -1665,6 +1696,9 @@ function setMousePos(pageX, pageY) {
 function initMouse() {
     maincanvas.onmousemove = function(event) { 
 	setMousePos(event.pageX, event.pageY);
+	if (mousePressed) {
+	    player.lastInputTime = new Date().getTime();
+	}
     };
 
     maincanvas.onmousedown = function(event) {
@@ -1674,11 +1708,13 @@ function initMouse() {
 	mousePressed = true;
 	leftMouse = (event.button == 0);
 	//console.log(player.shipVel);
+	player.lastInputTime = new Date().getTime();
     };
     maincanvas.onmouseup = function(event) {
 	//alert('i released a button.');
 	event.preventDefault();
 	mousePressed = false;
+	player.lastInputTime = new Date().getTime();
     };
     document.onkeydown = function(e) {
 	var unicode=e.keyCode? e.keyCode : e.charCode;
@@ -2124,6 +2160,7 @@ function resizeCanvas()
     }
     maxTunnelRadius = Math.max( maincanvas.height, maincanvas.width);
     cartoonLineThickness = maxTunnelRadius * proportionalCartoonLineThickness;
+    player.lastInputTime = new Date().getTime();
 }
 function reset() {
     location.reload(true);
