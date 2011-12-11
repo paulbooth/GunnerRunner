@@ -68,22 +68,22 @@ var bulletLifeTime = 300;
 // how much damage a bullet does to enemies
 var bulletDamage = 10;
 //how fast bullets move
-var bulletSpeed = 40;
+var bulletSpeed = 100;
 //how big the bullets are
-var bulletRadius = .05;
+var bulletRadius = .125;
 
 //for enemy
 //how much health enemies have
 var enemyHealth = 20;
 //probability of enemy appearance
-var enemyChance = .05;
+var enemyChance = .08;
 //how big are the enemies?
 //.5 - 1.5 times this size
 var enemySize = .15;//enemySize = .25 * maxTunnelRadius;
 //how much damage does an enemy do?
 var enemyDamage = 7;
 // how fast is the enemy?
-var enemySpeed = 15;
+var enemySpeed = 40;
 // how much damage multiplication should enemies get for barriers?
 var enemyBarrierMult = 3;
 
@@ -894,12 +894,14 @@ function Player(role) {
     this.exp = 0;
     this.overlayDrawFunction = null;
     this.level = 0;
+    this.damaged = 0;
 
     // TODO: combine hurt and heal functions so they behave the same
     // some enemies could be health bonuses
     // player hurt
     this.hurt = function(amount) {
 	playSound("ahhh");
+	this.damaged = 1;
 	if (this.role == 'pilot') {
 	    this.health -= amount;
 	    //if (this.health < 0) this.health = 0;
@@ -1028,7 +1030,9 @@ function Player(role) {
 	this.updateBullets(speedFactor);
 	//this.draw();
 	this.updateRole(speedFactor);
-
+	if (this.damaged > 0) {
+	    this.damaged -= .01 * speedFactor;
+	}
 	    //healing player shield health
 	    /*if ( (playerRegen != 0 )
 		 && (this.role == 'pilot') 
@@ -1045,12 +1049,15 @@ function Player(role) {
 	this.clear();
 	
 	    
-	    this.drawTunnel();
-	    this.drawTunnelIndicators();
+	this.drawTunnel();
+	this.drawTunnelIndicators();
 
-	    this.drawObjects();
-	    this.drawHud();
-	    this.drawCursor();
+	this.drawObjects();
+	if (this.damaged > 0) {
+	    this.drawDamaged();
+	}
+	this.drawHud();
+	this.drawCursor();
 	if (this.overlayDrawFunction) { this.overlayDrawFunction(); }
 
     };
@@ -1372,6 +1379,15 @@ function Player(role) {
 		  Math.min(hudHeight/4, hudWidth * .65/2 * exp), 
 		  true, true);
     };
+
+    // draws an effect if damaged
+    this.drawDamaged = function() {
+	var damagedColor = this.damaged;
+	console.log(damagedColor);
+	drawingContext.fillStyle = 'rgba(255,0,0,' + damagedColor + ')';
+	drawingContext.fillRect(0,0, centerX * 2, centerY * 2);
+    }
+
     //for pilot. gets overrided for gunner
     this.drawCursor = function() {
 	//drawingContext.fillStyle="rgba(0,255,0,.1)";
@@ -1828,7 +1844,11 @@ function initSocket() {
 	      });
 
     socket.on('health', function(amount) {
+	if (amount < player.health) {
+	    this.damaged = 1;
+	}
 		  player.health = amount;
+	
 	      });
 
     socket.on('hurt', function(amount) {
