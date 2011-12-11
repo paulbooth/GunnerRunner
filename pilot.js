@@ -49,6 +49,7 @@ var playerMaxHealth = 100;
 var playerMaxExp = 100;
 var playerRegen = 0;
 var score = 0;
+var playerDamageHealing = .03;
 
 // for pilot
 var acceleration = .5, backwardAcceleration = .5;
@@ -1031,7 +1032,7 @@ function Player(role) {
 	//this.draw();
 	this.updateRole(speedFactor);
 	if (this.damaged > 0) {
-	    this.damaged -= .01 * speedFactor;
+	    this.damaged -= playerDamageHealing * speedFactor;
 	}
 	    //healing player shield health
 	    /*if ( (playerRegen != 0 )
@@ -1845,7 +1846,7 @@ function initSocket() {
 
     socket.on('health', function(amount) {
 	if (amount < player.health) {
-	    this.damaged = 1;
+	    player.damaged = 1;
 	}
 		  player.health = amount;
 	
