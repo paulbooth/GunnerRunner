@@ -38,7 +38,7 @@ var indicatorDelta = 170;
 // distance between us and first indicator
 var indicatorOffset = 1000;
 // time of non-input to show help
-var helpTime = 10000; 
+var helpTime = 10000;
 
 // physics
 var updateTime = 1000/30;
@@ -78,7 +78,7 @@ var bulletRadius = .125;
 //how much health enemies have
 var enemyHealth = 20;
 //probability of enemy appearance
-var enemyChance = .08;
+var enemyChance = .05;
 //how big are the enemies?
 //.5 - 1.5 times this size
 var enemySize = .15;//enemySize = .25 * maxTunnelRadius;
@@ -87,7 +87,7 @@ var enemyDamage = 7;
 // how fast is the enemy?
 var enemySpeed = 40;
 // how much damage multiplication should enemies get for barriers?
-var enemyBarrierMult = 3;
+var enemyBarrierMult = 5;
 
 //for barrier
 //fraction of speed to move backwards when hit barrier
@@ -648,9 +648,10 @@ function Bullet(x,y,z,xs,ys,zs) {
 	for (var i = 0; i < player.enemies.length; i++) {
 	    var enemy = player.enemies[i];
 	    if (this.z >= enemy.z
-	       && this.z < enemy.z + Math.abs(this.velZ)
+	       && this.z < enemy.z + Math.abs(this.velZ - enemy.velZ)
 		&& (enemy.checkForHit(this.x,this.y))) {
 		enemy.hurt(bulletDamage);
+		enemy.velZ += enemySpeed;
 		if (enemy.health <= 0) {
 		    player.enemies.splice(i,1);
 		    player.expGain(expPerEnemy);
@@ -798,8 +799,9 @@ function Enemy(x,y,z,xs,ys,zs) {
 //	if (player.y > this.y) this.velY +=  100;
 	this.velX += .01 * (player.shipX - this.x);
 	this.velY += .01 * (player.shipY - this.y);
+	//this.velZ += .01 * (player.shipVel * 1.1- this.velZ);
 	// attempt to get the buggers to speed up when needed, and not when not
-	//this.velZ += (player.role == 'gunner'?-1:1) * .001 * (this.z)
+	this.velZ += (player.role == 'gunner'?-1:1) * .001 * (this.z - lightDist/2)
 	this.x += this.velX * speedFactor;
 	this.y += this.velY * speedFactor;
 	// how it should work, what with "real physics or whatever"
@@ -1209,11 +1211,6 @@ function Player(role) {
 	for (var i = 0; i < this.bullets.length; i++) {
 	    var bullet = this.bullets[i];
 	    if (bullet.update(speedFactor)) {
-		//console.log(bullet.lifeTime);
-
-		// if (bullet.z > 0 && bullet.z < bullet.velZ) {
-		//console.log("plane: x:"+bullet.x+" y:"+bullet.y);
-		//}
 		if (bullet.z > lightDist) {
 		    this.bullets.splice(i,1);
 		    i--;
@@ -1324,7 +1321,6 @@ function Player(role) {
 	var objects = new Array();
 	objects = objects.concat(this.barriers).concat(this.bullets).concat(this.enemies);
 	//objects.concat(this.bullets);
-	//console.log(objects);
 	objects.sort(this.sortObjectFunction);
 	for (var i = 0; i < objects.length; i++) {
 	    objects[i].draw(this.shipX, this.shipY);
@@ -1403,7 +1399,6 @@ function Player(role) {
     // draws an effect if damaged
     this.drawDamaged = function() {
 	var damagedColor = this.damaged;
-	console.log(damagedColor);
 	drawingContext.fillStyle = 'rgba(255,0,0,' + damagedColor + ')';
 	drawingContext.fillRect(0,0, centerX * 2, centerY * 2);
     };
@@ -1427,7 +1422,6 @@ function Player(role) {
 	    }
 	}
 	var metrics = drawingContext.measureText(helpText);
-	console.log(metrics);
 	drawingContext.fillStyle = '#000'
 	drawingContext.fillText(helpText, centerX - metrics.width/2, 
 				centerY - textSize/2);

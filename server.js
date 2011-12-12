@@ -6,10 +6,10 @@ app = express.createServer();
 //paperboy = require('paperboy');
 
 /*var server = http.createServer(function(req, res) {
-    paperboy.deliver(path.dirname(__filename), req, res);
-    });
+  paperboy.deliver(path.dirname(__filename), req, res);
+  });
 
-server.listen(80);*/
+  server.listen(80);*/
 app.listen(1337);
 app.configure(function(){
     //app.use(express.methodOverride());
@@ -25,17 +25,11 @@ app.get('/', function(req, res) {
 io = io.listen(app);
 io.set('log level', 1);
 
-
-
 var waiting = [];
 var pairs = [];
 io.sockets.on('connection', function(socket) {
-    getNetworkIP(function (error, ip) {
-	console.log('ip:' + ip);
-	if (error) {
-	    console.log('error:', error);
-	}
-    }, false);
+    var address = socket.handshake.address;
+    console.log("New connection from " + address.address + ":" + address.port);
     // usage example for getNetworkIP below
     var pilotTaken = false;
     var gunnerTaken = false;
@@ -144,7 +138,7 @@ io.sockets.on('connection', function(socket) {
 	    socket.otherPlayer.emit('hurt', amount);
 	}
     });
-   socket.on('levelUp', function(amount) {
+    socket.on('levelUp', function(amount) {
 	if (socket.gameStart) {
 	    socket.otherPlayer.emit('levelUp');
 	}
@@ -173,27 +167,27 @@ io.sockets.on('connection', function(socket) {
 	}
 	//pair.map(function(socket) { });
 	/*if (socket.role === 'pilot') {
-	    pilotTaken = false;
-	    pilotSocket = null;
-	} else if (socket.role === 'gunner') {
-	    gunnerTaken = false;
-	    gunnerSocket = null;
-	} else {
-	    console.log('Our...other guy... disconnected...');
-	    var indx = waiting.indexOf(socket);
-	    if (indx != -1) {
-		waiting.splice(indx, 1);
-	    }
-	}
-	if (socket.role == 'pilot'
-	    || socket.role == 'gunner') {
-	    if (waiting.length == 0) {
-		//socket.broadcast.emit('background', "#0F0");
-	    } else {
-		waiting[0].emit('reconnect', socket.role);
-		waiting.splice(0,1);
-	    }
-	}*/
+	  pilotTaken = false;
+	  pilotSocket = null;
+	  } else if (socket.role === 'gunner') {
+	  gunnerTaken = false;
+	  gunnerSocket = null;
+	  } else {
+	  console.log('Our...other guy... disconnected...');
+	  var indx = waiting.indexOf(socket);
+	  if (indx != -1) {
+	  waiting.splice(indx, 1);
+	  }
+	  }
+	  if (socket.role == 'pilot'
+	  || socket.role == 'gunner') {
+	  if (waiting.length == 0) {
+	  //socket.broadcast.emit('background', "#0F0");
+	  } else {
+	  waiting[0].emit('reconnect', socket.role);
+	  waiting.splice(0,1);
+	  }
+	  }*/
     });
     /*setInterval(function() {
       socket.send('message');
@@ -252,26 +246,26 @@ var getNetworkIP = (
 	    }
 	    // system call
 	    exec(command, function (error, stdout, sterr) {
-		     var ips = [];
-		     // extract IPs
-		     var matches = stdout.match(filterRE);
-		     // JS has no lookbehind REs, so we need a trick
-		     for (var i = 0; i < matches.length; i++) {
-			 ips.push(matches[i].replace(filterRE, '$1'));
-		     }
+		var ips = [];
+		// extract IPs
+		var matches = stdout.match(filterRE);
+		// JS has no lookbehind REs, so we need a trick
+		for (var i = 0; i < matches.length; i++) {
+		    ips.push(matches[i].replace(filterRE, '$1'));
+		}
 
-		     // filter BS
-		     for (var i = 0, l = ips.length; i < l; i++) {
-			 if (!ignoreRE.test(ips[i])) {
-			     //if (!error) {
-			     cached = ips[i];
-			     //}
-			     callback(error, ips[i]);
-			     return;
-			 }
-		     }
-		     // nothing found
-		     callback(error, null);
-		 });
+		// filter BS
+		for (var i = 0, l = ips.length; i < l; i++) {
+		    if (!ignoreRE.test(ips[i])) {
+			//if (!error) {
+			cached = ips[i];
+			//}
+			callback(error, ips[i]);
+			return;
+		    }
+		}
+		// nothing found
+		callback(error, null);
+	    });
 	};
     })();
