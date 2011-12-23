@@ -60,9 +60,13 @@ var expPerBarrier = 7.5;
 // how much experience per enemy taken down
 var expPerEnemy = 2.5;
 // cooldown time for machine gun
-var bulletTime = 10;
+var bulletTime = 5;
 // how fast the mouse moves the cursor
-var gunMouseTrailProp = .15;
+var gunMouseTrailProp = .75;//.15;
+// how much energy is depleted per shot
+var energyPerShot = .1;
+// how much energy is replenished per unit time
+var energyReplenish = .01;
 
 // for bullets
 // how many updates bullets last
@@ -70,7 +74,7 @@ var bulletLifeTime = 300;
 // how much damage a bullet does to enemies
 var bulletDamage = 10;
 //how fast bullets move
-var bulletSpeed = 100;
+var bulletSpeed = 200;
 //how big the bullets are
 var bulletRadius = .125;
 
@@ -78,14 +82,14 @@ var bulletRadius = .125;
 //how much health enemies have
 var enemyHealth = 20;
 //probability of enemy appearance
-var enemyChance = .05;
+var enemyChance = .03;
 //how big are the enemies?
 //.5 - 1.5 times this size
 var enemySize = .15;//enemySize = .25 * maxTunnelRadius;
 //how much damage does an enemy do?
 var enemyDamage = 7;
 // how fast is the enemy?
-var enemySpeed = 40;
+var enemySpeed = 35;
 // how much damage multiplication should enemies get for barriers?
 var enemyBarrierMult = 5;
 
@@ -1426,6 +1430,7 @@ function Player(role) {
 	drawingContext.fillText(helpText, centerX - metrics.width/2, 
 				centerY - textSize/2);
     };
+
     //for pilot. gets overrided for gunner
     this.drawCursor = function() {
 	//drawingContext.fillStyle="rgba(0,255,0,.1)";
@@ -2040,23 +2045,34 @@ function initGunner() {
     tunnelLineSpeed *=-1;
     var curbulletTime = 0;
     var gunX = 0, gunY = 0;
+    var gunEnergy = 1;
 
     //gunner updaterole
     player.updateRole = function(speedFactor) {
-	
+	// TODO(thepaulbooth): make this not break for large speedFactor values
 	gunX = player.mouseX/2 * gunMouseTrailProp * speedFactor +
 	    gunX * (1 - gunMouseTrailProp * speedFactor);
 	gunY = player.mouseY/2 * gunMouseTrailProp * speedFactor +
 	    gunY * (1 - gunMouseTrailProp * speedFactor);
-	if (curbulletTime < bulletTime) {
-	    curbulletTime = Math.min(bulletTime, curbulletTime + speedFactor);
-	}
+
+	gunEnergy = Math.min(1, gunEnergy + energyReplenish * speedFactor);
 	if (mousePressed) {
-	    if (curbulletTime >= bulletTime) {
+	    if (gunEnergy > energyPerShot && curbulletTime >= bulletTime) {
 		shootBullet();
+		gunEnergy -= energyPerShot;
 		curbulletTime = 0;
 	    }
 	}
+	if (curbulletTime < bulletTime) {
+	    curbulletTime = Math.min(bulletTime, curbulletTime 
+				     + speedFactor);
+	}
+	/*if (mousePressed) {
+	    if (curbulletTime >= energyPerShot) {
+		shootBullet();
+		curbulletTime -= energyPerShot;
+	    }
+	}*/
 	// enemy spawn
 	if (Math.random() < enemyChance) {
 	    // random (r, angle) polar position
@@ -2103,7 +2119,8 @@ function initGunner() {
 				  centerY + gunY - boxSize/2,
 				  boxSize, boxSize);
 	drawingContext.fillStyle = "#0c0";
-	var reloadHeight = boxSize * curbulletTime / bulletTime;
+	//var reloadHeight = boxSize * curbulletTime / bulletTime;
+	var reloadHeight = boxSize * gunEnergy;
 	drawingContext.fillRect(centerX + gunX
 				+ boxSize/2 + reloadOffset,
 				centerY + gunY + boxSize/2 - reloadHeight,
@@ -2165,7 +2182,7 @@ function gameOver() {
     clearInterval(drawIntervalId);
     playSound("oh_no");
     drawText( "Game Over");
-    setTimeout(reset, 3000);
+    setTimeout(reset, 2500 + Math.random() * 500);
 }
 
 function drawText(text, textSize, fillStyle, strokeStyle) {
