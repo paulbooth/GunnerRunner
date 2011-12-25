@@ -1019,7 +1019,7 @@ function Player(role) {
 	player.overlayDrawFunction = function() {
 	    if (alpha > 0) {
 		alpha -= .05
-		if (alpha < 0) {
+		if (alpha <= 0) {
 		    player.overlayDrawFunction = null;
 		    alpha = 0;
 		}
@@ -1860,6 +1860,8 @@ function initSocket() {
     socket.on('disconnect', function() {
 		  //console.log('client disconnect');
 	      });
+ 
+    socket.on('drawText', popupText);
 
     socket.on('enemy', function(en2) {
 		  var en = new Enemy(-en2.x, en2.y, -focalDist, en2.velX, en2.velY, -en2.velZ);
@@ -1885,6 +1887,7 @@ function initSocket() {
 		sendHealth();
 		sendExp();
 	    }
+	    popupText('GOGOGO!');
 	}
     });
 
@@ -2195,6 +2198,21 @@ function gameOver() {
     playSound("oh_no");
     drawText( "Game Over");
     setTimeout(reset, 3000);
+}
+
+function popupText(text) {
+    var alpha = 1;
+    player.overlayDrawFunction = function() {
+	alpha -= .05;
+	if (alpha <= 0) {
+	    player.overlayDrawFunction = null;
+	} else {
+	    drawText(text, null, 
+		 'rgba(0,' + Math.floor(255 - alpha * 255)+ ',0,' 
+		 + alpha + ')', 
+		 'rgba(0,0,' + Math.floor(alpha * 255) +',' + alpha + ')');
+	}
+    };
 }
 
 function drawText(text, textSize, fillStyle, strokeStyle) {

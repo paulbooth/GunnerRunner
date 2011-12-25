@@ -200,6 +200,8 @@ io.sockets.on('connection', function(socket) {
 		var otherSocket = pair[i];
 		if (otherSocket.role == 'waiting') {
 		    otherSocket.emit('reconnect', socket.role);
+		} else {
+		    otherSocket.emit('drawText', 'Abandoned!');
 		}
 	    }
 	}
