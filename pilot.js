@@ -1022,9 +1022,12 @@ function Player(role) {
 		if (alpha <= 0) {
 		    player.overlayDrawFunction = null;
 		    alpha = 0;
-		}
+		}   
+		drawText('Level Up!', null, 
+			 'rgba(0,255,0,' + alpha + ')', 
+			 'rgba(0,0,100,' + alpha + ')');
 	    }
-	    drawText('Level Up!', null, 'rgba(0,255,0,' + alpha + ')', 'rgba(0,0,100,' + alpha + ')');};
+	};
     }
 
     // recoil from shooting the gun
