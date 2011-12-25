@@ -67,6 +67,8 @@ var gunMouseTrailProp = 1;//.15;
 var energyPerShot = .11;
 // how much energy is replenished per unit time
 var energyReplenish = .01;
+// how much spread in the gun. high means low accuracy.
+var bulletVariability = 50;
 
 // for bullets
 // how many updates bullets last
@@ -655,6 +657,7 @@ function Bullet(x,y,z,xs,ys,zs) {
 	       && this.z < enemy.z + Math.abs(this.velZ - enemy.velZ)
 		&& (enemy.checkForHit(this.x,this.y))) {
 		enemy.hurt(bulletDamage);
+		playSound('anton_meow', 1);
 		enemy.velZ += enemySpeed;
 		if (enemy.health <= 0) {
 		    player.enemies.splice(i,1);
@@ -963,6 +966,7 @@ function Player(role) {
 	cartoonTunnelLines = !cartoonTunnelLines;
 	cartoonEnemies = !cartoonEnemies;
 	cartoonBarriers = !cartoonBarriers;
+	cartoonBullets = !cartoonBullets;
 
 	if (player.level % 2 == 0) {
 	    if (player.level % 4 == 0) {
@@ -2089,8 +2093,8 @@ function initGunner() {
 	    // random enemy
 	    var enemy = new Enemy(
 		r * Math.cos(angle), r * Math.sin(angle), lightDist, 
-		Math.random() * enemySpeed - enemySpeed/2, 
-		Math.random() * enemySpeed - enemySpeed/2, 
+		(Math.random() - .5) * enemySpeed * .75, 
+		(Math.random() - .5) * enemySpeed* .75, 
 		(Math.random() * -enemySpeed - enemySpeed/2) 
 		    + Math.min(player.shipVel,0) * .1);
 	    player.enemies.push(enemy);
@@ -2105,8 +2109,10 @@ function initGunner() {
 	bul = new Bullet(player.shipX,
 			 player.shipY,
 			 -bulletSpawnDepth,
-			 gunX * bulletScale,
-			 gunY * bulletScale,
+			 gunX * bulletScale 
+			 + bulletVariability * (Math.random() - .5),
+			 gunY * bulletScale
+			 + bulletVariability * (Math.random() - .5),
 			 bulletSpawnDepth * bulletScale + player.shipVel);
 	//console.log([player.mouseX, player.mouseY]);
 	player.bullets.push(bul);
