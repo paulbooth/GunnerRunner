@@ -1,3 +1,5 @@
+var totalConnected = 0;
+
 var http = require('http'),
 io = require('socket.io'),
 path = require('path'),
@@ -73,6 +75,8 @@ io.sockets.on('connection', function(socket) {
     var pair = pairs[room]; //getNextAvailablePair();
     socket.room = room;
     socket.pair = pair;
+    totalConnected++;
+    console.log('totalConnected:' + totalConnected);
     for (var i = 0; i < pair.length; i++) {
 	var otherplayer = pair[i];
 	if (otherplayer != null) {
@@ -188,7 +192,9 @@ io.sockets.on('connection', function(socket) {
 	}
     });
     socket.on('disconnect', function(event) {
+	totalConnected--;
 	console.log('our ' + socket.role + " disconnected from room " + socket.room);
+    console.log('totalConnected:' + totalConnected);
 	var index = socket.pair.indexOf(socket);
 	if (index == -1) { console.error('OH MY SWEET GOSH NOOOOO!!!: ' + socket.pair);}
 	pair.splice(index, 1);
