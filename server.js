@@ -54,7 +54,7 @@ io.sockets.on('connection', function(socket) {
     // we have an empty room!
     if (!pairs[room]) pairs[room] = [];
     var pair = pairs[room]; //getNextAvailablePair();
-    
+    socket.room = room;
     socket.pair = pair;
     for (var i = 0; i < pair.length; i++) {
 	var otherplayer = pair[i];
@@ -182,9 +182,12 @@ io.sockets.on('connection', function(socket) {
 		var otherSocket = pair[i];
 		if (otherSocket.role == 'waiting') {
 		    otherSocket.emit('reconnect', socket.role);
-		    
 		}
 	    }
+	}
+	if (pair.length == 0) {
+	    delete pair;
+	    delete pairs[socket.room];
 	}
 	//pair.map(function(socket) { });
 	/*if (socket.role === 'pilot') {
