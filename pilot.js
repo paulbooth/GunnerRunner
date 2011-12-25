@@ -1912,6 +1912,13 @@ function initSocket() {
 
     socket.on('levelUp', function() {  player.levelUp();});
 
+    // kicks the player back to the lobby
+    socket.on('lobby', function() {
+	window.location = "/";
+	    /*window.location.protocol + "://" 
+	    + window.location.host;*/
+    });
+
     socket.on('message', function(evt) {
 		  evt = JSON.parse(evt);
 		  //console.log("evt =");

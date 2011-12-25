@@ -86,6 +86,7 @@ io.sockets.on('connection', function(socket) {
 	//console.error('A waiter just tried to get served.');
 	socket.emit('background', '#AFA');
 	socket.emit('alert', 'Too many players.');
+	socket.emit('lobby');
     }
 
     //if (pilotTaken && gunnerTaken) {
