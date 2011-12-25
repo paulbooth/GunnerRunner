@@ -10,6 +10,7 @@ app = express.createServer();
   });
 
   server.listen(80);*/
+
 app.listen(1337);
 app.configure(function(){
     //app.use(express.methodOverride());
@@ -18,8 +19,23 @@ app.configure(function(){
     app.use(express.static(__dirname));
     app.use(express.errorHandler({dumpExceptions: true, showStack: true}));
 });
-app.get('/', function(req, res) {
-    res.sendfile(__dirname + 'index.html');
+
+app.get('*', function(req, res) {
+    //writeObj(req.headers);
+    if (req.params[0].split('/').length > 2) {
+	res.send('Don\'t use those slash things in your room name!');
+    }
+    if (req.params == '/' || req.params == '') {
+	//res.sendfile(__dirname + '/hello.html');
+	var gameLink = 'http://' + req.headers.host + '/' +
+	    getRandomTrochee() + getRandomTrochee();
+	res.send('<html><body>' +
+		 'Connect to the games like ' +
+		 '<a href="' + gameLink + '">' + gameLink +
+		 '</a></body></html>');
+    } else {
+	res.sendfile(__dirname + '/player.html');
+    }
 });
 
 io = io.listen(app);
@@ -30,10 +46,15 @@ var pairs = [];
 io.sockets.on('connection', function(socket) {
     var address = socket.handshake.address;
     console.log("New connection from " + address.address + ":" + address.port);
-    // usage example for getNetworkIP below
+    var urlParts = socket.handshake.headers.referer.split('/');
+    var room = urlParts[urlParts.length - 1].toLowerCase();
+    console.log('room:' + room);
     var pilotTaken = false;
     var gunnerTaken = false;
-    var pair = getNextAvailablePair();
+    // we have an empty room!
+    if (!pairs[room]) pairs[room] = [];
+    var pair = pairs[room]; //getNextAvailablePair();
+    
     socket.pair = pair;
     for (var i = 0; i < pair.length; i++) {
 	var otherplayer = pair[i];
@@ -51,20 +72,20 @@ io.sockets.on('connection', function(socket) {
 	socket.role = 'pilot';
 	//pilotSocket = socket;
 	//socket.emit('background', "#000");
-	console.log('PILOT CONNECTED');
+	console.log('Pilot in room ' + room);
     } else if (!gunnerTaken) {
 	gunnerTaken = true;
 	socket.emit('role', 'gunner');
 	//socket.emit('background', "#0F0");
 	//gunnerSocket = socket;
 	socket.role = 'gunner';
-	console.log('GUNNER CONNECTED');
+	console.log('Gunner in room ' + room);
     } else {
 	socket.emit('role', 'waiting');
 	//waiting.push(socket);
-	console.error('A waiter just tried to get served.');
+	//console.error('A waiter just tried to get served.');
 	socket.emit('background', '#AFA');
-	socket.emit('alert', 'too many players');
+	socket.emit('alert', 'Too many players.');
     }
 
     //if (pilotTaken && gunnerTaken) {
@@ -269,3 +290,29 @@ var getNetworkIP = (
 	    });
 	};
     })();
+
+function getRandomTrochee() {
+    var trochees = ["mighty", "morphing", "zombie", "fighter", "epic", "bacon", "burger", "blaster", "teenage", "mutant", "ninja", "turtle", "killer", "laser", "raptor", "jesus", "deadly", "viper", "pirate", "monkey", "hobo", "kitty", "robot", "lady", "power", "ranger", "batman", "chocolate", "rain", "puppy", "dino", "wombat", "gator", "poison", "rocker", "skater", "hater", "techno", "viking", "slasher", "winning", "tiger", "magic", "crystal", "vortex", "tower", "mega", "super", "ultra", "giant", "titan", "satyr", "smasher", "ancient", "elvin", "armor", "legend", "hammer", "castle", "iron", "maiden", "diesel", "motor", "gameboy", "console", "muscle", "flexing", "fairy", "woman", "toxic", "baby", "only", "japan", "captain", "falcon", "missile", "raider", "eagle", "satan", "lion", "demon", "madness", "sparta", "awesome", "jungle", "dolphin", "hamster", "venom", "studded", "bracelet", "trojan", "radar", "rocket", "master", "twisted", "metal", "jacket", "double", "rainbow", "heavy", "dragon", "lava", "dungeon", "level", "seven", "night-elf", "druid", "dark-lord", "vader", "frodo", "bilbo", "gandalf", "mordor", "oven-roasted", "fire-toasted", "mealtime", "drunken", "pancakes", "butter", "batter", "numa", "comic", "questing", "hero", "carebear", "stewart", "david", "badger", "mushroon", "nazi", "youtube", "myspace", "facebook", "blogger", "google", "yahoo", "ebay", "twitter", "wiki", "tumblr", "reddit", "flickr", "online", "gamer", "leeroy", "jenkens", "doctor", "narwhal", "penguin", "christmas"];
+    var trochee = trochees[Math.floor(Math.random()*trochees.length)];
+    return trochee.charAt(0).toUpperCase() + trochee.slice(1);
+}
+
+
+// helper method to print out an object
+function objToString(obj, message) {
+  if (!message) { message = obj; }
+  var details = "*****************" + "\n" + message + "\n";
+  var fieldContents;
+  for (var field in obj) {
+    fieldContents = obj[field];
+    if (typeof(fieldContents) == "function") {
+      fieldContents = "(function)";
+    } else
+    details += "  " + field + ": " + fieldContents + "\n";
+  }
+      return details;
+}
+
+function writeObj(obj, message) {
+    console.log(objToString(obj, message));
+}

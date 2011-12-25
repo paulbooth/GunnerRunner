@@ -62,9 +62,9 @@ var expPerEnemy = 2.5;
 // cooldown time for machine gun
 var bulletTime = 5;
 // how fast the mouse moves the cursor
-var gunMouseTrailProp = .75;//.15;
+var gunMouseTrailProp = 1;//.15;
 // how much energy is depleted per shot
-var energyPerShot = .1;
+var energyPerShot = .11;
 // how much energy is replenished per unit time
 var energyReplenish = .01;
 
@@ -1418,7 +1418,7 @@ function Player(role) {
 	    } else {
 		helpText = 'Hold left click to accelerate! Right click reverses!'
 	    }
-	} else {
+	} else if (player.role == 'gunner') {
 	    if ($.browser.mobile) {
 		helpText = 'Drag to control the gun and shoot enemies!'
 	    } else {
@@ -2175,14 +2175,13 @@ function resizeCanvas()
 }
 function reset() {
     location.reload(true);
-
 }
 function gameOver() {
     clearInterval(updateIntervalId);
     clearInterval(drawIntervalId);
     playSound("oh_no");
     drawText( "Game Over");
-    setTimeout(reset, 2500 + Math.random() * 500);
+    setTimeout(reset, 3000);
 }
 
 function drawText(text, textSize, fillStyle, strokeStyle) {
