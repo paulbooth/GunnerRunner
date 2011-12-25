@@ -29,8 +29,11 @@ app.get('*', function(req, res) {
 	//res.sendfile(__dirname + '/hello.html');
 	var gameLink = 'http://' + req.headers.host + '/' +
 	    getRandomTrochee() + getRandomTrochee();
-	res.send('<html><body>' +
-		 'Connect to the games like ' +
+	res.send('<html><head><style>' +
+		 '* {text-align:center; font-size:30px}' + 
+		 '</style></head><body>' +
+		 '<image src="gunnerrunnerlogo.png" width=100%/>' + 
+		 '<p>Get a link from a friend, or share a link like this one:<p>' +
 		 '<a href="' + gameLink + '">' + gameLink +
 		 '</a></body></html>');
     } else {
