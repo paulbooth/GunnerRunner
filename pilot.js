@@ -30,11 +30,11 @@ var cartoonLineThickness = 5;
 var barrierAlpha = 1;//.6;
 var numTunnelLines = 7;
 var tunnelLineSpeed = Math.PI/200;
-var drawTime = 1000/15;
+var drawTime = $.browser.mobile? 1000/15 : 1000/30;
 // how far in z-direction indicators go
 var indicatorThickness = 12;
 // distance between indicators
-var indicatorDelta = 170; 
+var indicatorDelta = 200; 
 // distance between us and first indicator
 var indicatorOffset = 1000;
 // time of non-input to show help
