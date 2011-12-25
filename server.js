@@ -28,8 +28,22 @@ app.get('*', function(req, res) {
 	res.send('Don\'t/use/those/slash/things/in/your/room/name!');
     } else if (req.params == '/' || req.params == '') {
 	//res.sendfile(__dirname + '/hello.html');
-	var gameLink = 'http://' + req.headers.host + '/' +
-	    getRandomTrochee() + getRandomTrochee();
+	var hostAddress = 'http://' + req.headers.host + '/';
+	var gameLink = hostAddress + getRandomTrochee() + getRandomTrochee();
+	var lonelyPeople = '<div><b>Ah, look at all the lonely people:</b>';
+	var isLonelyPeople = false;
+	for (var room in pairs) {
+	    if (pairs.hasOwnProperty(room) && pairs[room].length == 1) {
+		lonelyPeople += '<div><a href="' + hostAddress + room + '" '
+		    + 'style="font-size:20px">' + hostAddress + room
+		    + '</a></div>';
+		isLonelyPeople = true;
+	    }
+	}
+	lonelyPeople += '</div>';
+	if (!isLonelyPeople) {
+	    lonelyPeople = '<div><b>There are no lonely people!</b></div>';
+	}
 	res.send('<html><head><style>' +
 		 '* {text-align:center; font-size:30px}' + 
 		 '</style>' +
@@ -48,9 +62,12 @@ app.get('*', function(req, res) {
 </script>' +
 		 '</head><body>' +
 		 '<image src="gunnerrunnerlogo.png" width=100%/>' + 
-		 '<p>Get a link from a friend, or share a link like this one:<p>' +
-		 '<a href="' + gameLink + '">' + gameLink +
-		 '</a></body></html>');
+		 '<div>Get a link from a friend, or share a link like this one:</div>' +
+		 '<div><a href="' + gameLink + '">' + gameLink + '</a></div>' +
+		 '<div style="font-size:20px;color:#333">' + totalConnected 
+		 + (totalConnected == 1?' person' : ' people') 
+		 + ' connected right now.</div><p>' +
+		 lonelyPeople + '</body></html>');
     } else {
 	res.sendfile(__dirname + '/player.html');
     }
