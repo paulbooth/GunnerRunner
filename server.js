@@ -48,6 +48,7 @@ app.get('*', function(req, res) {
 	res.send('<html><head><style>' +
 		 '* {text-align:center; font-size:30px}' + 
 		 '</style>' +
+		 '<title>GunnerRunner</title>' +
 		 '<script type="text/javascript">\
 \
   var _gaq = _gaq || [];\
