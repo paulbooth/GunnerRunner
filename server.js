@@ -25,7 +25,8 @@ app.configure(function(){
 app.get('*', function(req, res) {
     //writeObj(req.headers);
     if (req.params[0].split('/').length > 2) {
-	res.send('Don\'t/use/those/slash/things/in/your/room/name!');
+	res.send('Don\'t/use/those/slash/things/in/your/room/name! Room ' +
+		 'attempted: ' + req.params[0]);
     } else if (req.params == '/' || req.params == '') {
 	//res.sendfile(__dirname + '/hello.html');
 	var hostAddress = 'http://' + req.headers.host + '/';
@@ -61,7 +62,7 @@ app.get('*', function(req, res) {
 \
 </script>' +
 		 '</head><body>' +
-		 '<image src="gunnerrunnerlogo.png" width=100%/>' + 
+		 '<image src="gunnerrunnerlogo.png" width=50%/>' + 
 		 '<div>Get a link from a friend, or share a link like this one:</div>' +
 		 '<div><a href="' + gameLink + '">' + gameLink + '</a></div>' +
 		 '<div style="font-size:20px;color:#333">' + totalConnected 
@@ -81,7 +82,7 @@ var pairs = [];
 io.sockets.on('connection', function(socket) {
     var address = socket.handshake.address;
     var urlParts = socket.handshake.headers.referer.split('/');
-    var room = urlParts[urlParts.length - 1].toLowerCase();
+    var room = urlParts[urlParts.length - 1];
     //console.log('room:' + room);
     console.log("New connection from " + address.address + ":" + address.port +
 	       " in room " + room);
