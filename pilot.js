@@ -96,6 +96,10 @@ var enemySpeed = 35;
 var enemyBarrierMult = 5;
 // how far away to unleash grapple
 var enemyGrappleDistance = 500;
+// how many grapples are grappled to the ship
+var numEnemyGrapples = 0;
+// how many grapples the other player is reporting
+var numOtherEnemyGrapples = 0;
 
 //for barrier
 //fraction of speed to move backwards when hit barrier
@@ -311,6 +315,11 @@ function sendLevelUp() {
 // tell the other player to recoil appropriately
 function sendRecoil(recoilVector) {
     socket.emit('recoil', recoilVector);
+}
+
+// tell the other player how many enemy grapples there are
+function sendNumEnemyGrapples(numEnemyGrapples) {
+  socket.emit('numEnemyGrapples', numEnemyGrapples);
 }
 
 //barrier class
@@ -749,7 +758,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 	// 	   drawR,
 	// 	   cartoonEnemies? 'rgb(0, 0, 0)': null,
 	// 	   color);
-  var noseZ = (this.velZ < 0 ? this.z - 100 : this.z + 100), 
+  var noseZ = ( (this.velZ < 0 || this.z < enemyGrappleDistance) ? this.z - 100 : this.z + 100), 
   noseX = centerX 
       - adjustFor3D(cameraX, noseZ) 
       + adjustFor3D(this.x, noseZ),
@@ -807,7 +816,7 @@ function Enemy(x,y,z,xs,ys,zs) {
 		       color);
 	}*/
 	// enemy face draw
-	if (  this.velZ < 0 && drawR > 4) {
+	if (  (this.velZ < 0 || this.z < enemyGrappleDistance) && drawR > 4) {
 	    var eyeFillStyle = 'rgb(' + 255 + ',' + colorValue + ',' + colorValue + ')';
 	    if (this.damaged > 0) {
 		drawingContext.fillStyle = eyeFillStyle;
@@ -1231,9 +1240,13 @@ function Player(role) {
     };
 
     this.updateEnemies = function(speedFactor) {
+      numEnemyGrapples = 0;
 	for (var i = 0; i < this.enemies.length; i++) {
 	    var enemy = this.enemies[i];
 	    if (enemy.update(speedFactor)) {
+        if (enemy.z > 0 && enemy.z < enemyGrappleDistance) {
+          numEnemyGrapples++;
+        }
 		if (enemy.z > lightDist*1.2) {
 		    this.enemies.splice(i,1);
 		    i--;
@@ -1259,6 +1272,7 @@ function Player(role) {
 		//alert("die!");
 	    }
 	}
+  sendNumEnemyGrapples(numEnemyGrapples);
 	//return true;
     };
 
@@ -1990,6 +2004,7 @@ function initSocket() {
 
 	      });
     socket.on('recoil', function(recoilVector) { player.recoil(recoilVector);});
+    socket.on('numEnemyGrapples', function(numEnemyGrapples) { numOtherEnemyGrapples = numEnemyGrapples;});
     socket.on('reconnect', reset);
 
     socket.on('role', function(role) {
@@ -2086,6 +2101,8 @@ function initPilot() {
 	    else
 		player.shipVel -= backwardAcceleration * speedFactor;
 	}
+  // if grappled, slow down
+  player.shipVel += (player.shipVel > 0 ? -.9 : .9) * acceleration * Math.min(numEnemyGrapples + numOtherEnemyGrapples, 20)/20;
 	if (backgroundMusic) {
 	    //if (player.shipVel > 0)
 		backgroundMusicChannel.volume = Math.min(Math.abs(player.shipVel/2), clippingSpeed)/clippingSpeed + .1;

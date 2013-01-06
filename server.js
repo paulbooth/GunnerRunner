@@ -211,6 +211,11 @@ io.sockets.on('connection', function(socket) {
 	    socket.otherPlayer.emit('recoil', recoilVector);
 	}
     });
+    socket.on('numEnemyGrapples', function(numEnemyGrapples) {
+  if (socket.gameStart) {
+      socket.otherPlayer.emit('numEnemyGrapples', numEnemyGrapples);
+  }
+    });
     socket.on('disconnect', function(event) {
 	totalConnected--;
 	console.log('our ' + socket.role + " disconnected from room " + socket.room);
