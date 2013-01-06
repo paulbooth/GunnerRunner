@@ -3,7 +3,7 @@ var maxTunnelRadius;
 
 //sound
 //play sound effects?
-var soundEffects = true;
+var soundEffects = false;
 //play background music?
 var backgroundMusic = true;
 // randomly start in the middle of the audio file?
@@ -64,11 +64,11 @@ var bulletTime = 5;
 // how fast the mouse moves the cursor
 var gunMouseTrailProp = 1;//.15;
 // how much energy is depleted per shot
-var energyPerShot = .11;
+var energyPerShot = .55;
 // how much energy is replenished per unit time
 var energyReplenish = .01;
 // how much spread in the gun. high means low accuracy.
-var bulletVariability = 50;
+var bulletVariability = 200;
 
 // for bullets
 // how many updates bullets last
@@ -94,6 +94,8 @@ var enemyDamage = 7;
 var enemySpeed = 35;
 // how much damage multiplication should enemies get for barriers?
 var enemyBarrierMult = 5;
+// how far away to unleash grapple
+var enemyGrappleDistance = 500;
 
 //for barrier
 //fraction of speed to move backwards when hit barrier
@@ -575,7 +577,6 @@ function Barrier() {
 }//end Barrier function
 
 
-
 function Bullet(x,y,z,xs,ys,zs) {
     this.x = x;
     this.y = y;
@@ -742,12 +743,52 @@ function Enemy(x,y,z,xs,ys,zs) {
 	    + adjustFor3D(this.y,this.z),
 	drawR = adjustFor3D(this.size * maxTunnelRadius, this.z);
 	if (drawR > 2) {
-	drawCircle(drawingContext,
-		   drawX,
-		   drawY,
-		   drawR,
-		   cartoonEnemies? 'rgb(0, 0, 0)': null,
-		   color);
+	// drawCircle(drawingContext,
+	// 	   drawX,
+	// 	   drawY,
+	// 	   drawR,
+	// 	   cartoonEnemies? 'rgb(0, 0, 0)': null,
+	// 	   color);
+  var noseZ = (this.velZ < 0 ? this.z - 100 : this.z + 100), 
+  noseX = centerX 
+      - adjustFor3D(cameraX, noseZ) 
+      + adjustFor3D(this.x, noseZ),
+  noseY = centerY - adjustFor3D(cameraY, noseZ) 
+      + adjustFor3D(this.y, noseZ);
+  drawingContext.beginPath();
+  if (noseZ > 0) {
+    drawingContext.moveTo(drawX + drawR, drawY);
+    drawingContext.lineTo(noseX, noseY);
+    drawingContext.lineTo(drawX - drawR, drawY);
+    drawingContext.moveTo(drawX, drawY + drawR);
+    drawingContext.lineTo(noseX, noseY);
+    drawingContext.lineTo(drawX, drawY - drawR);
+  }
+
+  drawingContext.moveTo(drawX, drawY - drawR);
+  drawingContext.lineTo(drawX + drawR, drawY);
+  drawingContext.lineTo(drawX, drawY + drawR);
+  drawingContext.lineTo(drawX - drawR, drawY);
+  drawingContext.lineTo(drawX, drawY - drawR);
+  drawingContext.moveTo(drawX + drawR, drawY);
+  drawingContext.closePath();
+  drawingContext.strokeStyle = color;
+  drawingContext.lineWidth = 3;
+  drawingContext.stroke();
+  if (noseZ > 0 && this.z < enemyGrappleDistance) {
+    drawingContext.beginPath();
+    drawingContext.moveTo(noseX, noseY);
+    var grappleX = centerX 
+      - adjustFor3D(cameraX, 0) 
+      + adjustFor3D(this.x, 0),
+    grappleY = centerY - adjustFor3D(cameraY, 0) 
+        + adjustFor3D(this.y, 0);
+    drawingContext.lineTo(grappleX, grappleY);
+    drawingContext.closePath();
+    drawingContext.strokeStyle = '#0000AA';
+    drawingContext.lineWidth = Math.ceil(10 - this.z/enemyGrappleDistance *10);
+    drawingContext.stroke();
+  }
 	}
 
 // uncomment to turn enemies into bears or mice or something
@@ -806,9 +847,12 @@ function Enemy(x,y,z,xs,ys,zs) {
 //	if (player.y > this.y) this.velY +=  100;
 	this.velX += .01 * (player.shipX - this.x);
 	this.velY += .01 * (player.shipY - this.y);
+  if (this.z < enemyGrappleDistance) {
+    this.velZ += (player.shipVel - this.velZ) * .9 - 1;
+  }
 	//this.velZ += .01 * (player.shipVel * 1.1- this.velZ);
 	// attempt to get the buggers to speed up when needed, and not when not
-	this.velZ += (player.role == 'gunner'?-1:1) * .001 * (this.z - lightDist/2)
+	// this.velZ += (player.role == 'gunner'?-1:1) * .001 * (this.z - lightDist/2)
 	this.x += this.velX * speedFactor;
 	this.y += this.velY * speedFactor;
 	// how it should work, what with "real physics or whatever"
@@ -2075,6 +2119,10 @@ function initGunner() {
 	gunEnergy = Math.min(1, gunEnergy + energyReplenish * speedFactor);
 	if (mousePressed) {
 	    if (gunEnergy > energyPerShot && curbulletTime >= bulletTime) {
+    shootBullet();
+    shootBullet();
+    shootBullet();
+    shootBullet();
 		shootBullet();
 		gunEnergy -= energyPerShot;
 		curbulletTime = 0;

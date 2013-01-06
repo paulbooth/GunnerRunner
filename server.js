@@ -4,7 +4,8 @@ var http = require('http'),
 io = require('socket.io'),
 path = require('path'),
 express = require('express'),
-app = express.createServer();
+app = express(),
+server = http.createServer(app);
 //paperboy = require('paperboy');
 
 /*var server = http.createServer(function(req, res) {
@@ -13,7 +14,7 @@ app = express.createServer();
 
   server.listen(80);*/
 
-app.listen(1337);
+server.listen(1337);
 app.configure(function(){
     //app.use(express.methodOverride());
     //app.use(express.bodyParser());
@@ -75,7 +76,7 @@ app.get('*', function(req, res) {
     }
 });
 
-io = io.listen(app);
+io = io.listen(server);
 io.set('log level', 1);
 
 var waiting = [];
