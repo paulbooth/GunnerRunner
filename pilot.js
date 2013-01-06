@@ -59,26 +59,32 @@ var expPerBarrier = 7.5;
 // for gunner
 // how much experience per enemy taken down
 var expPerEnemy = 2.5;
-// cooldown time for machine gun
-var bulletTime = 5;
 // how fast the mouse moves the cursor
 var gunMouseTrailProp = 1;//.15;
-// how much energy is depleted per shot
-var energyPerShot = .55;
-// how much energy is replenished per unit time
-var energyReplenish = .01;
-// how much spread in the gun. high means low accuracy.
-var bulletVariability = 200;
 
+// which type of gun we are shooting, could have specific effects (shotgun shoots multiple bullets)
+// 0 - pistol
+// 1 - shotgun
+// 2 - machine gun
+// 3 - cannon
+var bulletType = 0; 
+// cooldown time for gun
+var bulletTimes = [10, 5, 3, 20];
+// how much energy is depleted per shot
+var energyPerShots = [.25, .5, .1, 1];
+// how much energy is replenished per unit time
+var energyReplenishes = [.01, .015, .02, .025];
+// how much spread in the gun. high means low accuracy.
+var bulletVariabilities = [50, 200, 100, 10];
 // for bullets
 // how many updates bullets last
-var bulletLifeTime = 300;
+var bulletLifeTimes = [300, 200, 200, 500];
 // how much damage a bullet does to enemies
-var bulletDamage = 10;
+var bulletDamages = [20, 10, 7, 50];
 //how fast bullets move
-var bulletSpeed = 200;
+var bulletSpeeds = [200, 230, 250, 50];
 //how big the bullets are
-var bulletRadius = .125;
+var bulletRadiuses = [.125, .12, .05, .25];
 
 //for enemy
 //how much health enemies have
@@ -593,16 +599,16 @@ function Bullet(x,y,z,xs,ys,zs) {
     this.velX = xs;
     this.velY = ys;
     this.velZ = zs;
-    this.lifeTime = bulletLifeTime;
+    this.lifeTime = bulletLifeTimes[bulletType];
     // Bullet draw
     this.draw = function(cameraX, cameraY) {
-	//drawingContext.lineWidth = adjustFor3D(bulletRadius * maxTunnelRadius,this.z)*.5;
+	//drawingContext.lineWidth = adjustFor3D(bulletRadiuses[bulletType] * maxTunnelRadius,this.z)*.5;
 	var color = getColorAtDistance(this.z/5);
 	var drawX = centerX - adjustFor3D(cameraX, this.z) 
 	    + adjustFor3D(this.x, this.z);
 	var drawY = centerY - adjustFor3D(cameraY, this.z) 
 	    + adjustFor3D(this.y,this.z);
-	var drawR = adjustFor3D(bulletRadius * maxTunnelRadius, this.z);
+	var drawR = adjustFor3D(bulletRadiuses[bulletType] * maxTunnelRadius, this.z);
 	drawingContext.fillStyle = 'rgb(' + [color, color, color].toString() 
 	    + ')';
 	if (drawR > 1) {
@@ -644,9 +650,9 @@ function Bullet(x,y,z,xs,ys,zs) {
 	    Math.pow(this.x, 2)
 		+ Math.pow( this.y, 2));
 
-	if ( r > (1 - bulletRadius) * maxTunnelRadius && this.velX * this.x + this.velY * this.y > 0) {
-	    this.x *= (1 - bulletRadius) * maxTunnelRadius/ r;
-	    this.y *= (1 - bulletRadius) * maxTunnelRadius/ r;
+	if ( r > (1 - bulletRadiuses[bulletType]) * maxTunnelRadius && this.velX * this.x + this.velY * this.y > 0) {
+	    this.x *= (1 - bulletRadiuses[bulletType]) * maxTunnelRadius/ r;
+	    this.y *= (1 - bulletRadiuses[bulletType]) * maxTunnelRadius/ r;
 	    var reflectX = this.x/r, reflectY = this.y/r;
 	    /*var newVelX = (Math.pow(reflectX,2) - Math.pow(reflectY,2)) * this.velX + 2 * reflectX * reflectY * this.velY,
 	     newVelY = (Math.pow(reflectY,2) - Math.pow(reflectX,2)) * this.velY + 2 * reflectX * reflectY * this.velX;
@@ -666,7 +672,7 @@ function Bullet(x,y,z,xs,ys,zs) {
 	    if (this.z >= enemy.z
 	       && this.z < enemy.z + Math.abs(this.velZ - enemy.velZ)
 		&& (enemy.checkForHit(this.x,this.y))) {
-		enemy.hurt(bulletDamage);
+		enemy.hurt(bulletDamages[bulletType]);
 		playSound('anton_meow', 1);
 		enemy.velZ += enemySpeed;
 		if (enemy.health <= 0) {
@@ -1058,14 +1064,14 @@ function Player(role) {
 	    if (enemyChance < 1) {
 		enemyChance += Math.random() * .02;
 	    }/*
-	    if (bulletDamage < 100) {
-		bulletDamage += Math.random() * 5;
+	    if (bulletDamages[bulletType] < 100) {
+		bulletDamages[bulletType] += Math.random() * 5;
 	    }
-	    if (bulletTime > 3) {
-		bulletTime -= Math.random() * 1;
+	    if (bulletTimes[bulletType] > 3) {
+		bulletTimes[bulletType] -= Math.random() * 1;
 	    }
-	    if (bulletSpeed < 150) {
-		bulletSpeed += Math.random() * 5;
+	    if (bulletSpeeds[bulletType] < 150) {
+		bulletSpeeds[bulletType] += Math.random() * 5;
 	    }
 	}*/
 	var alpha = 1;
@@ -2133,26 +2139,28 @@ function initGunner() {
 	gunY = player.mouseY/2 * gunMouseTrailProp * speedFactor +
 	    gunY * (1 - gunMouseTrailProp * speedFactor);
 
-	gunEnergy = Math.min(1, gunEnergy + energyReplenish * speedFactor);
+	gunEnergy = Math.min(1, gunEnergy + energyReplenishes[bulletType] * speedFactor);
 	if (mousePressed) {
-	    if (gunEnergy > energyPerShot && curbulletTime >= bulletTime) {
+	    if (gunEnergy >= energyPerShots[bulletType] && curbulletTime >= bulletTimes[bulletType]) {
     shootBullet();
-    shootBullet();
-    shootBullet();
-    shootBullet();
-		shootBullet();
-		gunEnergy -= energyPerShot;
+    if (bulletType==1) {
+      shootBullet();
+      shootBullet();
+      shootBullet();
+  		shootBullet();
+    }
+		gunEnergy -= energyPerShots[bulletType];
 		curbulletTime = 0;
 	    }
 	}
-	if (curbulletTime < bulletTime) {
-	    curbulletTime = Math.min(bulletTime, curbulletTime 
+	if (curbulletTime < bulletTimes[bulletType]) {
+	    curbulletTime = Math.min(bulletTimes[bulletType], curbulletTime 
 				     + speedFactor);
 	}
 	/*if (mousePressed) {
-	    if (curbulletTime >= energyPerShot) {
+	    if (curbulletTime >= energyPerShots[bulletType]) {
 		shootBullet();
-		curbulletTime -= energyPerShot;
+		curbulletTime -= energyPerShots[bulletType];
 	    }
 	}*/
 	// enemy spawn
@@ -2175,15 +2183,15 @@ function initGunner() {
     function shootBullet() {
 	//console.log("shoot: x:"+player.mouseX+" y:"+player.mouseY);
 	var bulletSpawnDepth = focalDist;
-	var bulletScale = bulletSpeed/Math.sqrt( Math.pow(gunX,2) + Math.pow(gunY,2) + Math.pow(bulletSpawnDepth, 2));
+	var bulletScale = bulletSpeeds[bulletType]/Math.sqrt( Math.pow(gunX,2) + Math.pow(gunY,2) + Math.pow(bulletSpawnDepth, 2));
 
 	bul = new Bullet(player.shipX,
 			 player.shipY,
 			 -bulletSpawnDepth,
 			 gunX * bulletScale 
-			 + bulletVariability * (Math.random() - .5),
+			 + bulletVariabilities[bulletType] * (Math.random() - .5),
 			 gunY * bulletScale
-			 + bulletVariability * (Math.random() - .5),
+			 + bulletVariabilities[bulletType] * (Math.random() - .5),
 			 bulletSpawnDepth * bulletScale + player.shipVel);
 	//console.log([player.mouseX, player.mouseY]);
 	player.bullets.push(bul);
@@ -2203,7 +2211,7 @@ function initGunner() {
 				  centerY + gunY - boxSize/2,
 				  boxSize, boxSize);
 	drawingContext.fillStyle = "#0c0";
-	//var reloadHeight = boxSize * curbulletTime / bulletTime;
+	//var reloadHeight = boxSize * curbulletTime / bulletTimes[bulletType];
 	var reloadHeight = boxSize * gunEnergy;
 	drawingContext.fillRect(centerX + gunX
 				+ boxSize/2 + reloadOffset,
