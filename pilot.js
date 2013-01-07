@@ -55,6 +55,7 @@ var playerDamageHealing = .03;
 // for pilot
 var acceleration = .5, backwardAcceleration = .5;
 var expPerBarrier = 7.5;
+var mineTime = 100, curMineTime = 0;
 
 // for gunner
 // how much experience per enemy taken down
@@ -599,6 +600,8 @@ function Bullet(x,y,z,xs,ys,zs) {
     this.velX = xs;
     this.velY = ys;
     this.velZ = zs;
+    this.r = bulletRadiuses[bulletType];
+    this.damage = bulletDamages[bulletType];
     this.lifeTime = bulletLifeTimes[bulletType];
     // Bullet draw
     this.draw = function(cameraX, cameraY) {
@@ -608,7 +611,7 @@ function Bullet(x,y,z,xs,ys,zs) {
 	    + adjustFor3D(this.x, this.z);
 	var drawY = centerY - adjustFor3D(cameraY, this.z) 
 	    + adjustFor3D(this.y,this.z);
-	var drawR = adjustFor3D(bulletRadiuses[bulletType] * maxTunnelRadius, this.z);
+	var drawR = adjustFor3D(this.r * maxTunnelRadius, this.z);
 	drawingContext.fillStyle = 'rgb(' + [color, color, color].toString() 
 	    + ')';
 	if (drawR > 1) {
@@ -650,9 +653,9 @@ function Bullet(x,y,z,xs,ys,zs) {
 	    Math.pow(this.x, 2)
 		+ Math.pow( this.y, 2));
 
-	if ( r > (1 - bulletRadiuses[bulletType]) * maxTunnelRadius && this.velX * this.x + this.velY * this.y > 0) {
-	    this.x *= (1 - bulletRadiuses[bulletType]) * maxTunnelRadius/ r;
-	    this.y *= (1 - bulletRadiuses[bulletType]) * maxTunnelRadius/ r;
+	if ( r > (1 - this.r) * maxTunnelRadius && this.velX * this.x + this.velY * this.y > 0) {
+	    this.x *= (1 - this.r) * maxTunnelRadius/ r;
+	    this.y *= (1 - this.r) * maxTunnelRadius/ r;
 	    var reflectX = this.x/r, reflectY = this.y/r;
 	    /*var newVelX = (Math.pow(reflectX,2) - Math.pow(reflectY,2)) * this.velX + 2 * reflectX * reflectY * this.velY,
 	     newVelY = (Math.pow(reflectY,2) - Math.pow(reflectX,2)) * this.velY + 2 * reflectX * reflectY * this.velX;
@@ -671,8 +674,8 @@ function Bullet(x,y,z,xs,ys,zs) {
 	    var enemy = player.enemies[i];
 	    if (this.z >= enemy.z
 	       && this.z < enemy.z + Math.abs(this.velZ - enemy.velZ)
-		&& (enemy.checkForHit(this.x,this.y))) {
-		enemy.hurt(bulletDamages[bulletType]);
+		&& (enemy.checkForHit(this.x,this.y, this.r/2))) {
+		enemy.hurt(this.damage);
 		playSound('anton_meow', 1);
 		enemy.velZ += enemySpeed;
 		if (enemy.health <= 0) {
@@ -943,8 +946,12 @@ function Enemy(x,y,z,xs,ys,zs) {
 	return this.z;
     };
 
-    this.checkForHit = function(x, y) {
-	return Math.pow(this.size * maxTunnelRadius, 2) > Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2);
+    // checks for a hit from an object with position x, y and hit radius r
+    this.checkForHit = function(x, y, r) {
+      if (!r) {
+        r = 0;
+      }
+    	return Math.pow( (this.size + r) * maxTunnelRadius, 2) > Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2);
     };
 }// end Enemy function
 
@@ -1043,8 +1050,10 @@ function Player(role) {
 	startBackgroundMusic();
 
 	if (player.role == 'pilot') {
-	    sendLevelUp();
-	}
+    sendLevelUp();
+	} else {
+    bulletType = Math.floor(Math.random() * bulletTimes.length);
+  }
 	/*if (enemyDamage < 33) {
 	    enemyDamage += 1;
 	}
@@ -1487,7 +1496,7 @@ function Player(role) {
 	    if ($.browser.mobile) {
 		helpText = 'Drag to move and fly through barriers!'
 	    } else {
-		helpText = 'Hold left click to accelerate! Right click reverses!'
+		helpText = 'Hold left click to accelerate! Right click lays a mine!'
 	    }
 	} else if (player.role == 'gunner') {
 	    if ($.browser.mobile) {
@@ -1503,60 +1512,64 @@ function Player(role) {
     };
 
     //for pilot. gets overrided for gunner
-    this.drawCursor = function() {
-	//drawingContext.fillStyle="rgba(0,255,0,.1)";
-	//drawingContext.fillRect(centerX - 10, centerY - 10, 20, 20);
-	var cursorStrokeThickness = 2;
-	drawingContext.fillStyle="rgb(0,0,0)";
+    this.drawCursor = function() {      
+    	//drawingContext.fillStyle="rgba(0,255,0,.1)";
+    	//drawingContext.fillRect(centerX - 10, centerY - 10, 20, 20);
+    	var cursorStrokeThickness = 2;
+      if (mousePressed && !leftMouse) {
+        // draw mine cursor
+        drawCircle(drawingContext, centerX, centerY, 20+cursorStrokeThickness, '#000', null);
+        drawCircle(drawingContext, centerX, centerY, curMineTime/mineTime * (20+cursorStrokeThickness), '#000', '#0f0');
+      }
+      drawingContext.fillStyle="rgb(0,0,0)";
+      drawingContext.strokeStyle=drawingContext.fillStyle;
+    	drawingContext.fillRect(centerX - 2 - cursorStrokeThickness, centerY - 2 - cursorStrokeThickness, 4 + 2 * cursorStrokeThickness, 4 + 2 * cursorStrokeThickness);
+    	drawingContext.lineWidth = 4 + cursorStrokeThickness;
+    	drawingContext.beginPath();
+    	drawingContext.moveTo(centerX - 10 + cursorStrokeThickness, centerY);
+    	drawingContext.lineTo(centerX - 20 - cursorStrokeThickness, centerY);
+    	drawingContext.moveTo(centerX + 10 - cursorStrokeThickness, centerY);
+    	drawingContext.lineTo(centerX + 20 + cursorStrokeThickness, centerY);
+    	drawingContext.moveTo(centerX, centerY - 10 + cursorStrokeThickness);
+    	drawingContext.lineTo(centerX, centerY - 20 - cursorStrokeThickness);
+    	drawingContext.moveTo(centerX, centerY + 10 - cursorStrokeThickness);
+    	drawingContext.lineTo(centerX, centerY + 20 + cursorStrokeThickness);
 
-	drawingContext.strokeStyle=drawingContext.fillStyle;
-	drawingContext.fillRect(centerX - 2 - cursorStrokeThickness, centerY - 2 - cursorStrokeThickness, 4 + 2 * cursorStrokeThickness, 4 + 2 * cursorStrokeThickness);
-	drawingContext.lineWidth = 4 + cursorStrokeThickness;
-	drawingContext.beginPath();
-	drawingContext.moveTo(centerX - 10 + cursorStrokeThickness, centerY);
-	drawingContext.lineTo(centerX - 20 - cursorStrokeThickness, centerY);
-	drawingContext.moveTo(centerX + 10 - cursorStrokeThickness, centerY);
-	drawingContext.lineTo(centerX + 20 + cursorStrokeThickness, centerY);
-	drawingContext.moveTo(centerX, centerY - 10 + cursorStrokeThickness);
-	drawingContext.lineTo(centerX, centerY - 20 - cursorStrokeThickness);
-	drawingContext.moveTo(centerX, centerY + 10 - cursorStrokeThickness);
-	drawingContext.lineTo(centerX, centerY + 20 + cursorStrokeThickness);
+    	drawingContext.closePath();
 
-	drawingContext.closePath();
+    	drawingContext.stroke();
 
-	drawingContext.stroke();
+    	drawingContext.fillStyle = "rgb(255,255,255)";
+    	drawingContext.strokeStyle = drawingContext.fillStyle;
+    	//drawingContext.strokeStyle="rgb(0,0,0)";
+    	drawingContext.fillRect(centerX - 2, centerY - 2, 4, 4);
+    	drawingContext.lineWidth = 4;
+    	drawingContext.beginPath();
+    	drawingContext.moveTo(centerX - 10, centerY);
+    	drawingContext.lineTo(centerX - 20, centerY);
+    	drawingContext.moveTo(centerX + 10, centerY);
+    	drawingContext.lineTo(centerX + 20, centerY);
+    	drawingContext.moveTo(centerX, centerY - 10);
+    	drawingContext.lineTo(centerX, centerY - 20);
+    	drawingContext.moveTo(centerX, centerY + 10);
+    	drawingContext.lineTo(centerX, centerY + 20);
 
-	drawingContext.fillStyle = "rgb(255,255,255)";
-	drawingContext.strokeStyle = drawingContext.fillStyle;
-	//drawingContext.strokeStyle="rgb(0,0,0)";
-	drawingContext.fillRect(centerX - 2, centerY - 2, 4, 4);
-	drawingContext.lineWidth = 4;
-	drawingContext.beginPath();
-	drawingContext.moveTo(centerX - 10, centerY);
-	drawingContext.lineTo(centerX - 20, centerY);
-	drawingContext.moveTo(centerX + 10, centerY);
-	drawingContext.lineTo(centerX + 20, centerY);
-	drawingContext.moveTo(centerX, centerY - 10);
-	drawingContext.lineTo(centerX, centerY - 20);
-	drawingContext.moveTo(centerX, centerY + 10);
-	drawingContext.lineTo(centerX, centerY + 20);
+    	drawingContext.closePath();
 
-	drawingContext.closePath();
+    	drawingContext.stroke();
 
-	drawingContext.stroke();
-
-	/* broken arrow no good anyway
-	 drawingContext.beginPath();
-	 drawingContext.moveTo(this.mouseX, this.mouseY);
-	 drawingContext.lineTo(this.mouseX*.9-this.mouseY/maxTunnelRadius*20,
-	 this.mouseY*.9+this.mouseX/maxTunnelRadius*20);
-	 drawingContext.lineTo(this.mouseX*.9+this.mouseY/maxTunnelRadius*20,
-	 this.mouseY*.9-this.mouseX/maxTunnelRadius*20);
-	 drawingContext.lineTo(this.mouseX, this.mouseY);
-	 drawingContext.closePath();
-	 drawingContext.fillStyle="#000";
-	 drawingContext.stroke();
-	 drawingContext.fill();*/
+    	/* broken arrow no good anyway
+    	 drawingContext.beginPath();
+    	 drawingContext.moveTo(this.mouseX, this.mouseY);
+    	 drawingContext.lineTo(this.mouseX*.9-this.mouseY/maxTunnelRadius*20,
+    	 this.mouseY*.9+this.mouseX/maxTunnelRadius*20);
+    	 drawingContext.lineTo(this.mouseX*.9+this.mouseY/maxTunnelRadius*20,
+    	 this.mouseY*.9-this.mouseX/maxTunnelRadius*20);
+    	 drawingContext.lineTo(this.mouseX, this.mouseY);
+    	 drawingContext.closePath();
+    	 drawingContext.fillStyle="#000";
+    	 drawingContext.stroke();
+    	 drawingContext.fill();*/
     };
 
     this.clear = function() {
@@ -1784,6 +1797,7 @@ function initMouse() {
 	//alert('i released a button.');
 	event.preventDefault();
 	mousePressed = false;
+  curMineTime = 0;
 	player.lastInputTime = new Date().getTime();
     };
     document.onkeydown = function(e) {
@@ -1915,10 +1929,16 @@ function initSocket() {
     socket.on('bounce', function() {player.bounce();});
 
     socket.on('bullet',function(bul2) {
-	var bul = new Bullet(-bul2.x, bul2.y, -focalDist,
-			     bul2.velX, bul2.velY, -bul2.velZ);
-		      player.bullets.push(bul);
-	      });
+	    var bul = new Bullet(-bul2.x, bul2.y, -focalDist,
+			  bul2.velX, bul2.velY, -bul2.velZ);
+      bul.r = bul2.r;
+      bul.damage = bul2.damage;
+      if (bul2.mine) {
+        bul.draw = drawMine;
+      }
+      bul.lifeTime = bul2.lifeTime;
+      player.bullets.push(bul);
+    });
 
     socket.on('connect', function(evt) {
 		  //console.log(evt);
@@ -2011,6 +2031,7 @@ function initSocket() {
 	      });
     socket.on('recoil', function(recoilVector) { player.recoil(recoilVector);});
     socket.on('numEnemyGrapples', function(numEnemyGrapples) { numOtherEnemyGrapples = numEnemyGrapples;});
+    socket.on('mine', shootMine);
     socket.on('reconnect', reset);
 
     socket.on('role', function(role) {
@@ -2102,10 +2123,18 @@ function initPilot() {
 	    player.shipVel = 0;
 	}
 	if (mousePressed) {
-	    if (leftMouse)
-		player.shipVel += acceleration * speedFactor;
-	    else
-		player.shipVel -= backwardAcceleration * speedFactor;
+	  if (leftMouse) {
+		  player.shipVel += acceleration * speedFactor;
+	  } else {
+		  // player.shipVel -= backwardAcceleration * speedFactor;
+      if (curMineTime >= mineTime) {
+        sendMine();
+        curMineTime = 0;
+      } else {
+      curMineTime = Math.min(mineTime, curMineTime 
+             + speedFactor);
+      }
+    }
 	}
   // if grappled, slow down
   player.shipVel += (player.shipVel > 0 ? -.9 : .9) * acceleration * Math.min(numEnemyGrapples + numOtherEnemyGrapples, 20)/20;
@@ -2120,9 +2149,60 @@ function initPilot() {
 	startBackgroundMusic();
     }
 
-
-
+  function sendMine() {
+    socket.emit('mine');
+  }
 }
+
+// shoots a big bullet straight behind
+function shootMine() {
+  var bulletSpawnDepth = focalDist;
+  bul = new Bullet(player.shipX,
+       player.shipY,
+       -bulletSpawnDepth,
+       0,
+       0,
+       2 + player.shipVel);
+  //console.log([player.mouseX, player.mouseY]);
+  bul.r = .3;
+  bul.damage = 100;
+  bul.lifeTime = 600;
+  bul.mine = true;
+
+  bul.draw = drawMine;
+  player.bullets.push(bul);
+  //playSound("doo");
+  playSound("csh");
+  //sendRecoil([gunX * bulletScale, gunY * bulletScale, 
+  //      bulletSpawnDepth * bulletScale]);
+};
+
+function drawMine(cameraX, cameraY) {
+  //drawingContext.lineWidth = adjustFor3D(bulletRadiuses[bulletType] * maxTunnelRadius,this.z)*.5;
+  var color = getColorAtDistance(this.z/5);
+  var drawX = centerX - adjustFor3D(cameraX, this.z) 
+      + adjustFor3D(this.x, this.z);
+  var drawY = centerY - adjustFor3D(cameraY, this.z) 
+      + adjustFor3D(this.y,this.z);
+  var drawR = adjustFor3D(this.r * maxTunnelRadius, this.z);
+  if (drawR > 1) {
+    drawCircle(drawingContext,
+      drawX,
+      drawY,
+      drawR/2,
+      cartoonBullets? 'rgb(0, 0, 0)': null,
+      'rgb(' + [color, color, color].toString() + ')');
+  //     if (cartoonBullets) {
+  //   drawingContext.strokeStyle = "#000";
+  //   drawingContext.lineWidth = adjustFor3D(cartoonLineThickness, this.z);
+  //   drawingContext.strokeRect(
+  //       drawX - drawR/2,
+  //       drawY - drawR/2,
+  //       drawR,
+  //       drawR);
+  //     }
+  }
+};
 
 function initGunner() {
     document.title = "Gunner Runner - Gunner";
@@ -2202,28 +2282,28 @@ function initGunner() {
     };
     //overrides for the gunner
     player.drawCursor = function() {
-	var boxSize = 20;
-	var reloadWidth = boxSize/2;
-	var reloadOffset = 5;
-	drawingContext.strokeStyle = "#000";
-	drawingContext.lineWidth = 2;
-	drawingContext.strokeRect(centerX + gunX - boxSize/2,
-				  centerY + gunY - boxSize/2,
-				  boxSize, boxSize);
-	drawingContext.fillStyle = "#0c0";
-	//var reloadHeight = boxSize * curbulletTime / bulletTimes[bulletType];
-	var reloadHeight = boxSize * gunEnergy;
-	drawingContext.fillRect(centerX + gunX
+    	var boxSize = 20;
+    	var reloadWidth = boxSize/2;
+    	var reloadOffset = 5;
+    	drawingContext.strokeStyle = "#000";
+    	drawingContext.lineWidth = 2;
+    	drawingContext.strokeRect(centerX + gunX - boxSize/2,
+			  centerY + gunY - boxSize/2,
+			  boxSize, boxSize);
+    	drawingContext.fillStyle = "#0c0";
+    	//var reloadHeight = boxSize * curbulletTime / bulletTimes[bulletType];
+    	var reloadHeight = boxSize * gunEnergy;
+    	drawingContext.fillRect(centerX + gunX
 				+ boxSize/2 + reloadOffset,
 				centerY + gunY + boxSize/2 - reloadHeight,
 				reloadWidth,reloadHeight);
-	drawingContext.lineWidth = 1;
-	drawingContext.strokeRect(centerX + gunX
-				  + boxSize/2 + reloadOffset,
-				  centerY + gunY -  boxSize/2,
-				  reloadWidth,boxSize);
-	drawingContext.fillStyle = "rgb(255,0,0)";
-	drawingContext.fillRect(centerX + player.mouseX/2-2,
+    	drawingContext.lineWidth = 1;
+    	drawingContext.strokeRect(centerX + gunX
+			  + boxSize/2 + reloadOffset,
+			  centerY + gunY -  boxSize/2,
+			  reloadWidth,boxSize);
+    	drawingContext.fillStyle = "rgb(255,0,0)";
+    	drawingContext.fillRect(centerX + player.mouseX/2-2,
 				centerY + player.mouseY/2-2,4,4);
     };
 
