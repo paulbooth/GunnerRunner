@@ -69,8 +69,10 @@ app.get('*', function(req, res) {
 		 '<div><a href="' + gameLink + '">' + gameLink + '</a></div>' +
 		 '<div style="font-size:20px;color:#333">' + totalConnected 
 		 + (totalConnected == 1?' person' : ' people') 
-		 + ' connected right now.</div><p>' +
-		 lonelyPeople + '</body></html>');
+		 + ' connected right now.</div>'
+     + '<div style="background:#AAA; padding: 5px; margin: 5px auto; font-size:20px; max-width:500px">The first person to connect is the <b style="font-size:20px;">pilot</b>, who must avoid the barriers and can place mines behind the ship.</div>'
+     + '<div style="background:#AAA; padding: 5px; margin: 5px auto; font-size:20px; max-width:500px">The next person to connect is the <b style="font-size:20px;">gunner</b>, who must use their gun to destroy the chasing ships.</div>'
+		 + lonelyPeople + '</body></html>');
     } else {
 	res.sendfile(__dirname + '/player.html');
     }
